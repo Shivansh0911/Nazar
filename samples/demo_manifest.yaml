@@ -52,3 +52,13 @@ cameras:
     settings: {upscale: 2, detect_imgsz: 960, detect_conf: 0.2}
     clips:
       - {file: samples/clip6_bag.mp4, start: "yesterday 21:50"}
+  - id: builders-venue
+    name: "Builders venue"
+    # samples/hackathon.mp4: real clip from the Builders 2026 venue (not committed). start: file = its recording time.
+    zones:
+      - {name: team_desk, label: "Team desk", polygon: [[0.0, 0.0], [0.62, 0.0], [0.62, 0.42], [0.0, 0.42]]}
+      - {name: right_side, label: "Right side", polygon: [[0.62, 0.0], [1.0, 0.0], [1.0, 0.42], [0.62, 0.42]]}
+      - {name: green_bag, label: "Green bag spot", polygon: [[0.16, 0.12], [0.44, 0.12], [0.44, 0.40], [0.16, 0.40]]}
+    settings: {upscale: 2}
+    clips:
+      - {file: samples/hackathon.mp4, start: "file"}

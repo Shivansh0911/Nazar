@@ -27,6 +27,9 @@ def snapshot_bytes(camera_id: str) -> bytes | None:
             time.sleep(0.02)
     seg = db.fetch_one("SELECT key FROM segments WHERE camera_id=%s ORDER BY t_end DESC LIMIT 1", (camera_id,))
     if not seg or not storage.local_path(seg["key"]).exists():
+        kf = db.fetch_one("SELECT key FROM keyframes WHERE camera_id=%s ORDER BY persons ASC, t DESC LIMIT 1", (camera_id,))
+        if kf and storage.local_path(kf["key"]).exists():
+            return storage.local_path(kf["key"]).read_bytes()  # face-blurred keyframe (files are not re-encoded)
         return None
     cache = storage.local_path(f"live/{camera_id}_seg.jpg")
     cache.parent.mkdir(parents=True, exist_ok=True)

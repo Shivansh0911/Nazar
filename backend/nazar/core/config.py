@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     RETENTION_DAYS: int = 7
     MAX_EDGES: int = 2
     AUTO_START_EDGES: bool = True
-    UPLOAD_MAX_MB: int = 2048
+    UPLOAD_MAX_MB: int = 4096
     LEVEL_PROBABLE_SIM: float = 0.35
     LEVEL_CANDIDATE_SIM: float = 0.25
     MEDIAMTX_HOST: str = "localhost"

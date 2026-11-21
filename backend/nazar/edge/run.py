@@ -133,6 +133,10 @@ def main(argv=None) -> int:
 
     cam = ensure_camera(args.camera, args.source)
     source = args.source or cam["source_url"]
+    if not args.source:
+        from ..core.secrets import source_url_for
+
+        source = source_url_for(db, args.camera, source)  # credentials decrypted in memory only
     kind = infer_kind(source) if args.source else cam["kind"]
     if kind == "phone":
         kind = "rtsp"

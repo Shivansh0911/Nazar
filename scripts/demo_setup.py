@@ -37,7 +37,11 @@ from nazar.core.zones import clean_zones, default_zones, suggest_zones  # noqa: 
 from nazar.worker import alive  # noqa: E402
 
 
-def resolve_start(s: str):
+def resolve_start(s: str, path: Path | None = None):
+    if s == "file" and path is not None:  # the file's own recording time: modified time minus its duration
+        from datetime import datetime, timezone
+
+        return datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc) - timedelta(seconds=duration(path))
     t = parse_local(s)
     if t > now_local():
         t -= timedelta(days=1)
@@ -47,7 +51,7 @@ def resolve_start(s: str):
 def reset(cam_ids: list[str]) -> None:
     db.execute("DELETE FROM cameras WHERE id = ANY(%s)", (cam_ids,))
     for cam in cam_ids:
-        for sub in ("segments", "crops", "clips"):
+        for sub in ("segments", "crops", "clips", "keyframes"):
             shutil.rmtree(storage.data_dir() / sub / cam, ignore_errors=True)
         try:
             (storage.data_dir() / "live" / f"{cam}.jpg").unlink(missing_ok=True)
@@ -158,7 +162,7 @@ def main() -> int:
             if not path.exists():
                 print(f"  missing {clip['file']} - run: python scripts/fetch_samples.py")
                 continue
-            start = resolve_start(clip["start"])
+            start = resolve_start(clip["start"], path)
             done = db.fetch_one("SELECT id, state FROM jobs WHERE camera_id=%s AND source=%s AND start_time=%s "
                                 "AND state <> 'error'", (cam["id"], str(path), start))
             if done:

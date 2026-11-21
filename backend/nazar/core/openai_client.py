@@ -125,7 +125,7 @@ class NazarAI:
         inp, cached, out = _usage_tokens(resp)
         cost, unknown = prices.cost_tokens(model, inp, cached, out)
         tier = getattr(resp, "service_tier", None)
-        tier = tier if isinstance(tier, str) else None
+        tier = ("standard" if tier in ("default", "auto") else tier) if isinstance(tier, str) else None
         if tier == "flex":
             cost *= prices.FLEX_FACTOR  # Flex is billed at ~50 % of Standard
         usage.record(kind, model, camera_id=camera_id, ref=ref, input_tokens=inp, cached_tokens=cached,
