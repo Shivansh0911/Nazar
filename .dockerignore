@@ -1,0 +1,13 @@
+.git
+.venv
+.env
+.env.*
+data
+web
+docs
+samples/*.mp4
+samples/*.mpg
+samples/raw
+backend/models
+**/__pycache__
+**/.pytest_cache

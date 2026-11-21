@@ -1,0 +1,28 @@
+# Search evaluation questions for scripts/eval_search.py
+#
+# How to fill `truth`: open the camera in the web app (or play the sample clip), find the moments that answer the
+# question, and write each as a local-time window. Times use the same wall clock as the demo (demo_setup stamps clips
+# as "yesterday 21:50" etc.; open /camera/?id=... to see each clip's footage window). A question counts as a HIT when
+# any of the top-3 returned clips overlaps any truth window. Confirmed/Probable clips that overlap NO truth window
+# count as "confidently wrong". Questions without `truth` are skipped.
+#
+# Example: in clip6_bag.mp4 the person puts the bag on desk 14 at ~0:33-0:48 and picks it up at ~1:50-2:00 into the
+# clip. With the clip stamped at yesterday 21:50:00 that is 21:50:33-21:50:48 and 21:51:50-21:52:00.
+questions:
+  - q: "Desk 14 se bag kisne uthaya?"
+    camera_id: office-desk
+    truth:
+      - {from: "yesterday 21:51:40", to: "yesterday 21:52:01"}
+  - q: "Who put a bag on the desk last night?"
+    camera_id: office-desk
+    truth:
+      - {from: "yesterday 21:50:30", to: "yesterday 21:50:50"}
+  - q: "Helmet wala sabzi wala kab dikha?"
+    camera_id: shop-counter
+    truth: []   # fill: windows when the vendor in the helmet is visible (he is in every shop-counter clip)
+  - q: "Show me people in a red jacket in the lobby this morning"
+    camera_id: lobby
+    truth: []   # fill after watching clip4 (stamped today 08:30)
+  - q: "Night stall pe purple kurta wala kab aaya?"
+    camera_id: night-market
+    truth: []   # fill after watching clip5 (stamped yesterday 22:40 and today 02:05)

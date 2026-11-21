@@ -42,7 +42,7 @@ OPENAI_AGENT_MODEL=gpt-6-sol            # query agent, rule compiler, zone sugge
 OPENAI_EMBED_MODEL=text-embedding-3-small
 OPENAI_TRANSCRIBE_MODEL=gpt-4o-transcribe
 OPENAI_TTS_MODEL=gpt-4o-mini-tts
-DATABASE_URL=postgresql://nazar:nazar@localhost:5432/nazar
+DATABASE_URL=postgresql://nazar:nazar@localhost:5433/nazar   # 5433: another local Postgres uses 5432
 STORAGE_MODE=local          # local | s3
 S3_BUCKET=
 AWS_REGION=us-west-2
@@ -88,6 +88,11 @@ All timestamps are real wall-clock (timestamptz). For files, wall clock = config
 Flow: compile (LLM) → validate → show human-readable card → replay last 24h of events (return hits + clips) → user activates → live evaluation on new events → optional vision confirm → alert.
 `object_removed`: a stationary object track disappears from a zone while a person track overlaps it. If unreliable, fall back to zone_exit + vision confirm.
 
+## Machine notes
+- `DATA_DIR` on this laptop is outside OneDrive (`C:/Users/ssojh/AppData/Local/Nazar/data`).
+- OpenCV must stay < 5 (YuNet is ~5x slower on 5.x); Tailwind pinned to 4.1.11 (Node 20.14).
+- 8 GB RAM: run at most one or two edges at once.
+
 ## Build plan
 Follow BUILD_PROMPT.md milestones M0-M9. After each: run its checks, update PROGRESS.md, commit. When resuming, read PROGRESS.md first.
 
@@ -99,7 +104,7 @@ Follow BUILD_PROMPT.md milestones M0-M9. After each: run its checks, update PROG
 - Never commit `.env`, keys, `data/`, videos, model weights. Secret-scan before the final push.
 
 ## Footage
-No venue camera and no user recordings. In M0 you download 6 free-license/research clips yourself: `samples/clip1..5.mp4` (shop/entrance, street/market, parking, lobby, night) and `samples/clip6_bag.mp4` (a bag left and picked up, e.g. CAVIAR LeftBag_PickedUp or PETS 2006), with sources in `samples/SOURCES.md`, stamped as last night's footage via `samples/demo_manifest.yaml`. Low-res sources are upscaled ×2 before detection. Any uploaded video (including a judge's) and any live RTSP/SRT/RTMP/phone camera must also work, started from the UI via the edge manager; `scripts/live_from_file.ps1` proves the live path.
+No venue camera and no user recordings. The 6 demo clips are downloaded by `python scripts/fetch_samples.py` (Pexels clip1..5: veg-stall counter, Mumbai street, road with bikes/autos, mall lobby, night fruit stall; clip6_bag = ABODA video10 + its reversed tail, because the CAVIAR ceiling-fisheye bag is too small to detect), with sources in `samples/SOURCES.md`, stamped as last night's footage via `samples/demo_manifest.yaml` (`python scripts/demo_setup.py`). Low-res sources are upscaled ×2 before detection. Any uploaded video (including a judge's) and any live RTSP/SRT/RTMP/phone camera must also work, started from the UI via the edge manager; `scripts/live_from_file.ps1` proves the live path.
 
 ## Setup is your job
 Create/extend `.env` yourself (all non-secret values filled; `OPENAI_API_KEY`, AWS keys and `S3_BUCKET` left empty for the user to paste at the end). Start Docker Desktop yourself if `docker info` fails. Install everything. Never print or commit secrets.

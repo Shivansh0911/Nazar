@@ -138,3 +138,50 @@ with optional raw recording.
 3.3–4.2 s after the event, each with a snapshot. First track 32 s after camera creation (model load under memory
 pressure; tracks are upserted every 1 s once detected). `process_recordings.py` parses MediaMTX file names.
 **Not verified:** a physical phone via Larix (no phone stream in this session).
+
+## M8 — Deploy kit (2026-11-21)
+**Built:** `infra/Dockerfile.backend` (python 3.12-slim + ffmpeg, CPU torch, OpenVINO), `infra/docker-compose.prod.yml`
+(mediamtx SRT/RTMP, api + edge manager with MAX_EDGES=3, worker, caddy HTTPS, optional postgres profile),
+`infra/Caddyfile` (sslip.io domain, flush for MJPEG/WS), `infra/DEPLOY.md` (S3 + lifecycle, IAM role, SGs, RDS
+pgvector, one c7i.xlarge, Amplify, Larix, guardrails). `.dockerignore`.
+**Verified:** `docker compose -f infra/docker-compose.prod.yml config` valid, dev compose valid, `caddy validate`
+(caddy:2 image) → "Valid configuration", `web/out` static export built. Docker image build: see below.
+**No AWS resources were created.**
+
+## M9 — Eval, docs (2026-11-21)
+**Built:** `scripts/eval_counts.py`, `scripts/eval_search.py`, `scripts/eval/questions.yaml`, `scripts/cost_report.py`,
+`scripts/screenshots.mjs`, `README.md` (§22), `docs/architecture.md`, `LICENSE`, CLAUDE.md synced, `FINAL_STEPS.md`.
+**Measured:** count accuracy 80 % (shop-counter 18:30 window: 6 tracked vs 5 hand-counted), saved to
+`data/eval/latest.json`. Cost report runs (no AI spend yet).
+**QA:** faces blurred in 5 random crops, a night segment, alert snapshot, MJPEG/snapshots (same blurred frames);
+no TODO/FIXME/NotImplementedError; secret scan clean; mobile 390 px no horizontal scroll; demo DB tidied (test
+uploads, test rules and today's test footage on office-desk removed → desk rule replays exactly 1 hit at 21:51).
+
+---
+
+# Final status
+
+**What works (verified here):** demo dataset (6 cameras, ~600 tracks, events, stitched tracks), edge on files and
+on live RTSP from MediaMTX, worker (eventize, zone re-eventize, rules, alerts with snapshots, stitcher, retention),
+API (all routes; 8 smoke tests + 59 unit tests), upload of any video incl. 4K/portrait, edge start/stop from the UI,
+MJPEG, clips with box overlay, find-again, rule replay, live alerts over WebSocket in ~4 s, web app (lint/build
+clean, reviewed screenshots), deploy kit (compose/caddy validated).
+
+**Needs your env (see FINAL_STEPS.md):** OpenAI key → `check_models.py`, `pytest -m live`, enrichment, ask by
+text/voice, compile, TTS, suggest-zones, cost numbers, search eval, chat screenshots; `git push` sign-in; AWS deploy.
+
+**Run the demo in 5 commands:**
+```powershell
+docker compose -f infra/docker-compose.yml up -d
+.\.venv\Scripts\Activate.ps1
+python scripts/demo_setup.py --manifest samples/demo_manifest.yaml
+powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1
+start http://localhost:3000      # passcode nazar2026
+```
+
+**Run instructions (all services):** dev services `docker compose -f infra/docker-compose.yml up -d`; edge on a file
+`python -m nazar.edge.run --camera demo --source ..\samples\clip1.mp4 --start-time "yesterday 22:30" --fast`
+(from `backend/`); simulate-live `scripts\demo_live.ps1 -Camera office-desk`; RTSP `scripts\live_from_file.ps1
+samples\clip2.mp4 cam1` + add camera `rtsp://localhost:8554/cam1`; worker `python -m nazar.worker.run`; API
+`uvicorn nazar.api.main:app --port 8000`; web `cd web; npm run dev`; eval `python scripts/eval_counts.py ...`,
+`python scripts/eval_search.py`; cost `python scripts/cost_report.py`; deploy `infra/DEPLOY.md`.

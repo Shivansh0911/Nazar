@@ -1,0 +1,82 @@
+# Production on ONE CPU EC2 instance (see infra/DEPLOY.md). Web is a static export on Amplify.
+#   docker compose -f infra/docker-compose.prod.yml up -d --build
+#   docker compose -f infra/docker-compose.prod.yml --profile db up -d --build   # with a local Postgres instead of RDS
+name: nazar-prod
+
+x-backend: &backend
+  build:
+    context: ..
+    dockerfile: infra/Dockerfile.backend
+  image: nazar-backend:prod
+  env_file: ../.env
+  environment:
+    DATA_DIR: /data
+    MEDIAMTX_HOST: mediamtx
+    MAX_EDGES: "3"
+    ALLOW_LAN_CAMERAS: "false"
+  volumes:
+    - nazar-data:/data
+    - nazar-models:/app/backend/models
+  restart: unless-stopped
+
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:1
+    ports:
+      - "8890:8890/udp"   # SRT from phones (Larix)
+      - "1935:1935/tcp"   # RTMP from phones / encoders
+    environment:
+      MTX_PATHDEFAULTS_RECORD: ${RECORD_RAW_BOOL:-no}   # set RECORD_RAW_BOOL=yes for overnight raw recording
+      MTX_PATHDEFAULTS_RECORDPATH: /data/recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+      - nazar-data:/data
+    command: ["/mediamtx.yml"]
+    restart: unless-stopped
+
+  api:
+    <<: *backend
+    command: ["uvicorn", "nazar.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+    expose: ["8000"]
+    depends_on: [mediamtx]
+
+  worker:
+    <<: *backend
+    command: ["python", "-m", "nazar.worker.run"]
+    healthcheck:
+      disable: true
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [api]
+    restart: unless-stopped
+
+  postgres:
+    profiles: ["db"]
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: nazar
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nazar}
+      POSTGRES_DB: nazar
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nazar -d nazar"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  nazar-data:
+  nazar-models:
+  caddy-data:
+  caddy-config:
+  pgdata:

@@ -1,0 +1,16 @@
+# HTTPS without buying a domain: DOMAIN=<EC2-public-IP-with-dashes>.sslip.io (e.g. 34-210-12-7.sslip.io)
+{$DOMAIN} {
+	encode gzip
+
+	@backend path /api/* /media/*
+	handle @backend {
+		# flush immediately: MJPEG and WebSocket stream through here
+		reverse_proxy api:8000 {
+			flush_interval -1
+		}
+	}
+
+	handle {
+		respond "Nazar API is running. Open the web app (Amplify URL)." 200
+	}
+}
