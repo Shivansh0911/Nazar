@@ -1,0 +1,26 @@
+# Nazar live ingest: phones push SRT/RTMP, DVRs/ffmpeg push RTSP; edges read RTSP.
+# HLS/WebRTC are off - the API serves its own face-blurred MJPEG.
+logLevel: info
+rtsp: yes
+rtspAddress: :8554
+rtspTransports: [tcp, udp]
+rtmp: yes
+rtmpAddress: :1935
+srt: yes
+srtAddress: :8890
+hls: no
+webrtc: no
+api: no
+metrics: no
+playback: no
+
+pathDefaults:
+  # Raw recording is OFF unless RECORD_RAW=1 (compose sets MTX_PATHDEFAULTS_RECORD=yes).
+  record: no
+  recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+  recordFormat: fmp4
+  recordSegmentDuration: 10m
+  recordDeleteAfter: 7d
+
+paths:
+  all_others:

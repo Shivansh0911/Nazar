@@ -1,0 +1,37 @@
+# Maps downloaded clips to demo cameras and wall-clock start times (local time, Asia/Kolkata).
+# "yesterday HH:MM" / "today HH:MM" are resolved when demo_setup runs; a start that would be in the future
+# is moved back one day. Gaps between clips show up as honest offline periods.
+#   python scripts/demo_setup.py --manifest samples/demo_manifest.yaml [--reset]
+cameras:
+  - id: shop-counter
+    name: "Shop counter"
+    clips:
+      - {file: samples/clip1.mp4, start: "yesterday 18:30"}
+      - {file: samples/clip1.mp4, start: "yesterday 19:40"}
+      - {file: samples/clip1.mp4, start: "yesterday 22:10"}
+      - {file: samples/clip1.mp4, start: "today 09:15"}
+  - id: market-street
+    name: "Market street"
+    clips:
+      - {file: samples/clip2.mp4, start: "yesterday 20:30"}
+      - {file: samples/clip2.mp4, start: "today 08:05"}
+  - id: main-road
+    name: "Main road"
+    clips:
+      - {file: samples/clip3.mp4, start: "yesterday 23:15"}
+      - {file: samples/clip3.mp4, start: "today 07:40"}
+  - id: lobby
+    name: "Lobby"
+    clips:
+      - {file: samples/clip4.mp4, start: "yesterday 17:20"}
+      - {file: samples/clip4.mp4, start: "today 08:30"}
+  - id: night-market
+    name: "Night stall"
+    clips:
+      - {file: samples/clip5.mp4, start: "yesterday 22:40"}
+      - {file: samples/clip5.mp4, start: "today 02:05"}
+  - id: office-desk
+    name: "Office desk"
+    settings: {upscale: 2, detect_imgsz: 960, detect_conf: 0.2}
+    clips:
+      - {file: samples/clip6_bag.mp4, start: "yesterday 21:50"}

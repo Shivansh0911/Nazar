@@ -1,0 +1,19 @@
+# Install torch FIRST (see requirements-gpu.txt), then: pip install -r backend/requirements.txt
+ultralytics>=8.3.0
+lap>=0.5.12
+opencv-python>=4.10
+numpy>=1.26,<2.3
+psycopg[binary]>=3.2
+psycopg-pool>=3.2
+pgvector>=0.3.6
+fastapi>=0.115
+uvicorn[standard]>=0.32
+python-multipart>=0.0.12
+openai>=1.60
+pydantic>=2.9
+pydantic-settings>=2.6
+python-dotenv>=1.0
+boto3>=1.35
+pyyaml>=6.0
+httpx>=0.27
+pytest>=8.3

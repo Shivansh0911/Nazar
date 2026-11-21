@@ -1,0 +1,34 @@
+# secrets
+.env
+.env.*
+!.env.example
+web/.env.local
+*.pem
+.claude/settings.local.json
+
+# python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# node / web
+node_modules/
+web/.next/
+web/out/
+web/next-env.d.ts
+web/test-results/
+
+# media, data, models
+data/
+samples/*.mp4
+samples/*.mpg
+samples/*.avi
+samples/*.mov
+samples/raw/
+backend/models/
+*.pt
+*.onnx
+*_openvino_model/
+runs/

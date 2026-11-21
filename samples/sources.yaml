@@ -1,0 +1,95 @@
+# Demo footage sources. Re-download + normalize with:  python scripts/fetch_samples.py
+# Pexels clips are under the Pexels License (free to use, no attribution required; we credit anyway).
+# CAVIAR clips: EC Funded CAVIAR project/IST 2001 37540 - free for research use with acknowledgement.
+clips:
+  - out: samples/clip1.mp4
+    camera: shop-counter
+    scene: "Street vegetable stall (shop counter): vendor in a helmet, customers buying; fixed eye-level camera, daylight, India"
+    source: pexels
+    pexels_id: 19949700
+    slug: a-young-men-buying-on-street-vegetables-shop
+    page: https://www.pexels.com/video/a-young-men-buying-on-street-vegetables-shop-19949700/
+    author: GK Kumawat
+    license: Pexels License
+  - out: samples/clip2.mp4
+    camera: market-street
+    scene: "Busy Mumbai street seen from a footbridge: pedestrians, taxis, buses; elevated, near-fixed view, daylight"
+    source: pexels
+    pexels_id: 30230719
+    slug: busy-mumbai-street-with-heavy-traffic
+    page: https://www.pexels.com/video/busy-mumbai-street-with-heavy-traffic-30230719/
+    author: Aksinfo7
+    license: Pexels License
+  - out: samples/clip3.mp4
+    camera: main-road
+    scene: "City road from a first-floor window: motorcycles, autos, cars, trucks and pedestrians in front of shops; elevated fixed view, India"
+    source: pexels
+    pexels_id: 28925595
+    slug: busy-urban-traffic-scene-in-city-center
+    page: https://www.pexels.com/video/busy-urban-traffic-scene-in-city-center-28925595/
+    author: Karthick S
+    license: Pexels License
+  - out: samples/clip4.mp4
+    camera: lobby
+    scene: "Large mall/transit lobby with shop fronts, people walking across the floor; elevated fixed view"
+    source: pexels
+    pexels_id: 2985409
+    slug: people-spending-time-inside-a-mall
+    page: https://www.pexels.com/video/people-spending-time-inside-a-mall-2985409/
+    author: Joshua Santos
+    license: Pexels License
+  - out: samples/clip5.mp4
+    camera: night-market
+    scene: "Fruit stall at night under tube lights, customers in front of the counter; fixed eye-level camera, low light"
+    source: pexels
+    pexels_id: 32166140
+    slug: bustling-night-fruit-market-with-vibrant-colors
+    page: https://www.pexels.com/video/bustling-night-fruit-market-with-vibrant-colors-32166140/
+    author: Riaz Uddin
+    license: Pexels License
+  - out: samples/clip6_bag.mp4
+    camera: office-desk
+    scene: "INRIA lobby from the ceiling (CAVIAR LeftBag_PickedUp): a person leaves a bag, another person picks it up; 384x288"
+    source: url
+    url: https://homepages.inf.ed.ac.uk/rbf/CAVIARDATA1/LeftBag_PickedUp/LeftBag_PickedUp.mpg
+    page: https://homepages.inf.ed.ac.uk/rbf/CAVIARDATA1/
+    author: CAVIAR project (INRIA)
+    license: "Research use; acknowledge EC Funded CAVIAR project/IST 2001 37540"
+
+# Not in the demo manifest: used to test the Upload flow with arbitrary videos.
+extras:
+  - out: samples/extra_mall.mp4
+    scene: "Shopping mall walkway, eye-level, people walking toward the camera"
+    source: pexels
+    pexels_id: 4750061
+    slug: people-walking-inside-the-shopping-mall
+    page: https://www.pexels.com/video/people-walking-inside-the-shopping-mall-4750061/
+    author: Anvar Tushakov
+    license: Pexels License
+  - out: samples/extra_leftbox.mp4
+    scene: "CAVIAR LeftBox: a box is left in the lobby"
+    source: url
+    url: https://homepages.inf.ed.ac.uk/rbf/CAVIARDATA1/LeftBox/LeftBox.mpg
+    page: https://homepages.inf.ed.ac.uk/rbf/CAVIARDATA1/
+    author: CAVIAR project (INRIA)
+    license: "Research use; acknowledge EC Funded CAVIAR project/IST 2001 37540"
+  - out: samples/extra_portrait.mp4
+    scene: "Portrait (9:16) phone video - upload test, kept un-normalized"
+    source: pexels
+    pexels_id: 39545313
+    slug: busy-city-street-intersection-with-pedestrians-and-cyclists
+    page: https://www.pexels.com/video/busy-city-street-intersection-with-pedestrians-and-cyclists-39545313/
+    author: phalgunnmaharishi
+    license: Pexels License
+    raw: true
+    prefer_width: 1080
+  - out: samples/extra_4k.mp4
+    scene: "4K top view of people walking on stairs - upload test (downscaled on ingest), kept un-normalized"
+    source: pexels
+    pexels_id: 4687383
+    slug: top-view-of-people-walking-on-concrete-stairs
+    page: https://www.pexels.com/video/top-view-of-people-walking-on-concrete-stairs-4687383/
+    author: Kelly
+    license: Pexels License
+    raw: true
+    prefer_width: 3840

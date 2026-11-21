@@ -1,0 +1,9 @@
+# Dev laptop (RTX 4050, driver 546.18 -> max CUDA 12.3). Install BEFORE requirements.txt:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# Never install a newer CUDA build. Verify afterwards:
+#   python -c "import torch; print(torch.cuda.is_available())"
+# CPU-only servers (EC2) use:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+--index-url https://download.pytorch.org/whl/cu121
+torch
+torchvision
