@@ -1,4 +1,4 @@
-// v2 payloads (mirrors backend/nazar/api/*: visual, agent v2, metrics v2, onboarding, reports).
+﻿// v2 payloads (mirrors backend/nazar/api/*: visual, agent v2, metrics v2, onboarding, reports).
 import type { AskResponse, CameraOut, ClipItem, CountResult, Level } from "./types";
 
 export interface Receipt {
@@ -164,6 +164,7 @@ export interface ReportOut {
   language: string;
   pdf_url: string | null;
   manifest_sha256: string | null;
+  preview_url?: string | null;
 }
 
 export interface Digest {

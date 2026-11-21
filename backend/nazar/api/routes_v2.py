@@ -1,4 +1,4 @@
-"""v2 routes: security events, morning digest, incident reports, settings, Telegram pairing, custom objects."""
+﻿"""v2 routes: security events, morning digest, incident reports, settings, Telegram pairing, custom objects."""
 from __future__ import annotations
 
 import random
@@ -84,7 +84,9 @@ def create_report(body: ReportIn, token: str = Depends(require_token)):
 @router.get("/reports")
 def list_reports(token: str = Depends(require_token)):
     return [{"id": r["id"], "at": to_local(r["at"]).isoformat(), "title": r["title"], "language": r["language"],
-             "pdf_url": storage.url(r["pdf_key"], token), "manifest_sha256": r["manifest_sha256"]}
+             "pdf_url": storage.url(r["pdf_key"], token), "manifest_sha256": r["manifest_sha256"],
+             "preview_url": storage.url(f"reports/{r['id']}_preview.png", token)
+             if storage.local_path(f"reports/{r['id']}_preview.png").exists() else None}
             for r in db.fetch_all("SELECT * FROM reports WHERE pdf_key IS NOT NULL ORDER BY at DESC LIMIT 100")]
 
 

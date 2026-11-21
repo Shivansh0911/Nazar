@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import { FileText, ShieldCheck } from "lucide-react";
@@ -25,7 +25,10 @@ export default function ReportsPage() {
         {items?.map((r) => (
           <a key={r.id} href={r.pdf_url || "#"} target="_blank" rel="noreferrer"
             className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3 hover:border-primary/60">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-soft text-primary"><FileText size={20} /></div>
+            {r.preview_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={r.preview_url} alt="" className="h-16 w-12 rounded-lg border border-line object-cover object-top" />
+            ) : <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-soft text-primary"><FileText size={20} /></div>}
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium">{r.title}</div>
               <div className="text-xs text-muted">#{r.id} · {fmtDayTime(r.at)} · {r.language === "hi" ? "हिन्दी" : "English"}</div>

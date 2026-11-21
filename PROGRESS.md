@@ -250,3 +250,24 @@ the next session; this build used the Playwright npm package (`scripts/shots_v2.
 | W12 data/eval | partly | hand counts (3 windows), tracker comparison, agent battery, language round-trip; MOT17/snatch datasets not downloaded (multi-GB) |
 | W13 cost truth | ✅ | unit costs measured from `usage`; Flex tier with fallback; projection calculator |
 | W15 MCP | ✅ | Higgsfield not added (fabricated video = fake evidence) |
+
+## v2 measured (22 Nov 2026, this laptop) — sources: data/eval/*.json
+- Speed (`bench_pipeline.py`, 30 min 1280x720): v1 1.3x -> v2 8.9x real time (dense rush-hour footage, 2,636 tracks);
+  venue clip 17.7x; drift 0.13 s. Bottleneck: tracker + Python on CPU, not the GPU.
+- Agent battery (`eval_battery.py`, 27 questions, hi/hinglish/en): 27/27 correct; first words p50 7.0 s / p90 10.3 s;
+  full p50 8.8 s / p90 12.2 s; agent cost p50 Rs 0.03 (p90 0.05); 26/27 on gpt-6-luna.
+- Unit costs (Insights): question incl. voice reply p50 Rs 0.31; verification Rs 0.013/call; report Rs 0.016; caption Rs 0.005.
+- Counts vs hand counts (`eval_counts.py`): office desk 2/2, shop counter 4 vs 3 (rider), venue 5 vs 3 (occluded person
+  re-detected). BoT-SORT (no ReID) = ByteTrack on these windows.
+- Languages round-trip: hi, en, ta, te, bn, gu, kn pass; Hinglish returns Devanagari; Marathi fails (Gurmukhi).
+- Live: object-removed alert 3.0 s after the event (snapshot + voice); taught "laptop" (YOLOE) alert 4.6 s.
+- Security on demo data: object_removed AI-verified Probable (ABODA); abandoned bag stays Candidate.
+- Memory: vision 2.8 GB private (SigLIP loaded), edge 0.5-1.6 GB, API 0.42 GB, worker 0.45 GB; ~0.6 GB free on 8 GB.
+- Privacy spot-check (10 served files: 4 crops, 3 keyframes, clip poster, reel poster, live view): faces blurred; one
+  seated person's glasses showed under the head band -> head band 20 % -> 30 % + YuNet on 2x-upscaled small crops,
+  demo re-processed.
+
+## v2 — exact next step
+Feature work is frozen. If resuming: (1) pair Telegram from Settings and verify a voice-note question + an alert
+arrive (FINAL_STEPS §4); (2) optional P1 left: WebRTC live view (W10), YOLOE photo prompts, MOT17 eval; (3) deploy per
+infra/DEPLOY.md only with the user's explicit yes for every AWS resource.

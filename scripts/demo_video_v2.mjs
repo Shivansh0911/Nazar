@@ -1,4 +1,4 @@
-// v2 judge run-through, recorded in real Chrome with on-screen captions (acceptance G12).
+﻿// v2 judge run-through, recorded in real Chrome with on-screen captions (acceptance G12).
 //   cd web; node ../scripts/demo_video_v2.mjs [--photo path\to\bag.jpg] [--channel chrome]
 // Needs: API :8000, worker, vision service, web :3000, demo data. Writes demo/nazar_v2.webm and demo/nazar_v2_fast.json
 // (intervals to speed up while waiting); scripts/make_demo_mp4.py turns them into demo/nazar_v2.mp4.
@@ -18,7 +18,7 @@ const PHOTO = opt("--photo", "");
 const UPLOAD = opt("--upload", path.resolve(here, "..", "samples", "hackathon.mp4"));
 fs.mkdirSync(OUT, { recursive: true });
 
-const browser = await chromium.launch({ channel: opt("--channel", "chrome"), args: ["--autoplay-policy=no-user-gesture-required"] });
+const browser = await chromium.launch({ channel: opt("--channel", "chrome"), args: ["--autoplay-policy=no-user-gesture-required", "--window-position=0,0"] });
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, recordVideo: { dir: OUT, size: { width: 1440, height: 900 } } });
 const page = await ctx.newPage();
 const t0 = Date.now();
@@ -52,7 +52,7 @@ async function ask(q, wait = 4000) {
   await page.fill('input[placeholder^="Ask"]', q);
   await pause(600);
   await page.keyboard.press("Enter");
-  await waitFast(() => page.waitForSelector("text=/ s · ₹/", { timeout: 150000 }));
+  await waitFast(() => page.waitForFunction(() => !document.body.innerText.includes("Thinking") && !document.querySelector(".animate-spin"), null, { timeout: 150000 }));
   await pause(wait);
 }
 
@@ -136,8 +136,8 @@ if (PHOTO) {
 // 6. teach an object, replay first
 await page.goto(`${BASE}/ask/`);
 await pause(1500);
-await caption("Teach it anything, no training: \"laptop pe nazar rakho\" - open-vocabulary detection (YOLOE).");
-await ask("Builders venue pe laptop pe nazar rakho", 5000);
+await caption("Teach it anything, no training: \"kursi pe nazar rakho\" - a class the detector never learned, found by YOLOE.");
+await ask("Builders venue pe kursi (chair) pe nazar rakho", 5000);
 await caption("It checks the stored frames first (replay), then watches live.");
 await pause(5000);
 
@@ -161,18 +161,12 @@ await fetch(`${API}/api/rules/${rule.rule_id}/deactivate`, { method: "POST", hea
 await page.goto(`${BASE}/alerts/`);
 await pause(2000);
 await caption("One tap: a police-ready incident PDF - timeline, blurred frames, evidence levels, SHA-256 hashes.");
-const [pdf] = await Promise.all([
-  ctx.waitForEvent("page", { timeout: 180000 }).catch(() => null),
-  page.click('button:has-text("Incident report (PDF)")').catch(() => undefined),
-]);
+await page.evaluate(() => { window.open = (u) => { window.location.href = String(u).replace(/(\d+)_[a-f0-9]{6}\.pdf/, "$1_preview.png"); return null; }; });  // show the PDF's page preview in this tab (recorded)
 const fa = now();
-if (pdf) {
-  await pdf.waitForLoadState().catch(() => undefined);
-  fast.push([fa, now()]);
-  await pdf.bringToFront();
-  await pause(8000);
-  await pdf.close();
-}
+await page.click('button:has-text("Incident report (PDF)")').catch(() => undefined);
+await page.waitForURL(/_preview\.png/, { timeout: 240000 }).catch(() => undefined);
+fast.push([fa, now()]);
+await pause(9000);
 
 // 9. insights
 await page.bringToFront();

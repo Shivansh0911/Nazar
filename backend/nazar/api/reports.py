@@ -1,4 +1,4 @@
-"""FIR-ready incident report (W5): HTML -> PDF with Playwright/Chromium (correct Devanagari shaping).
+﻿"""FIR-ready incident report (W5): HTML -> PDF with Playwright/Chromium (correct Devanagari shaping).
 
 Contents: case title, camera/location, time window, timeline table, 4-8 face-blurred keyframes, an AI description
 (marked AI-generated), evidence levels and how they were decided, the clip link, SHA-256 of the exported clip and of
@@ -197,9 +197,13 @@ def create_report(*, title: str, alert_id=None, sec_event_id=None, track_ids=Non
         b = p.chromium.launch()
         pg = b.new_page()
         pg.set_content(doc, wait_until="load")
+        pg.set_viewport_size({"width": 900, "height": 1200})
+        prev = storage.local_path(f"reports/{rid}_preview.png")
+        pg.screenshot(path=str(prev), full_page=True)  # first-page preview for the app (and Telegram)
         pg.pdf(path=str(out), format="A4", print_background=True, margin={"top": "12mm", "bottom": "12mm", "left": "8mm", "right": "8mm"})
         b.close()
     storage.put(out, pdf_key)
     db.execute("UPDATE reports SET pdf_key=%s, manifest_sha256=%s WHERE id=%s", (pdf_key, man_sha, rid))
     return {"ok": True, "report_id": rid, "title": title, "pdf_url": storage.url(pdf_key, token), "manifest_sha256": man_sha,
+            "preview_url": storage.url(f"reports/{rid}_preview.png", token),
             "clip_url": clip_url, "frames": len(frames), "timeline_rows": len(rows), "pdf_key": pdf_key}
