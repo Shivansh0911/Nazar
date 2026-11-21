@@ -161,19 +161,49 @@ def search_tracks(p: dict, ai=None, ref: str | None = None) -> dict:
 
 
 # ---------------------------------------------------------------------------------------------- counts
+BUCKETS = [(10, "10s"), (60, "1min"), (300, "5min"), (900, "15min"), (3600, "hour"), (86400, "day")]
+
+
+def _coverage_span(cam: str | None, t_from: datetime, t_to: datetime) -> tuple[datetime, datetime] | None:
+    r = db.fetch_one("SELECT min(t_start) AS a, max(t_end) AS b FROM coverage WHERE t_end >= %s AND t_start <= %s"
+                     + (" AND camera_id=%s" if cam else ""), (t_from, t_to, cam) if cam else (t_from, t_to))
+    if not r or r["a"] is None:
+        return None
+    return max(t_from, r["a"]), min(t_to, r["b"])
+
+
+def auto_bucket(span_s: float, requested: str | None = None) -> tuple[timedelta, str]:
+    """Pick the bucket that gives a readable chart (<= 48 bars) for the footage actually covered."""
+    names = {n: s for s, n in BUCKETS}
+    if requested in names and span_s / names[requested] <= 96:
+        return timedelta(seconds=names[requested]), requested  # type: ignore[index]
+    for secs, name in BUCKETS:
+        if span_s / secs <= 48:
+            return timedelta(seconds=secs), name
+    return timedelta(days=1), "day"
+
+
 def count_events(p: dict) -> dict:
+    """SQL counts with receipts. people seen = distinct ROOT tracks lasting >= COUNT_MIN_SECONDS with max confidence
+    >= COUNT_MIN_CONF (filters ID fragments and flicker); zone events and line crossings count distinct roots."""
+    from ..core.config import get_settings
+
+    st = get_settings()
     cam = p.get("camera_id") or None
     zone = p.get("zone") or None
     cls = p.get("cls") or "person"
     event = p.get("event") or "enter"
     t_from, t_to = _t(p["time_from"]), _t(p["time_to"])
-    step = _bucket_interval(p.get("bucket"))
     classes = ["backpack", "handbag", "suitcase"] if cls in ("any_bag", "bag") else [cls]
-    if zone is None and event in ("enter", "exit"):
+    if zone is None and event in ("enter", "exit", "cross_in", "cross_out", "dwell"):
         event = "present"
+    span = _coverage_span(cam, t_from, t_to) or (t_from, t_to)
+    step, bucket = auto_bucket(max(30.0, (span[1] - span[0]).total_seconds()), p.get("bucket"))
+    min_s, min_conf = st.COUNT_MIN_SECONDS, st.COUNT_MIN_CONF
     if event == "present":
-        where = ["cls = ANY(%s)", "t_end >= %s", "t_start <= %s"]
-        params: list[Any] = [classes, t_from, t_to]
+        where = ["cls = ANY(%s)", "t_end >= %s", "t_start <= %s", "t_end - t_start >= make_interval(secs => %s)",
+                 "COALESCE(max_conf, 1) >= %s"]
+        params: list[Any] = [classes, t_from, t_to, min_s, min_conf]
         if cam:
             where.append("camera_id=%s")
             params.append(cam)
@@ -181,8 +211,8 @@ def count_events(p: dict) -> dict:
             where.append("zone_path @> ARRAY[%s]::text[]")
             params.append(zone)
         rows = db.fetch_all(
-            f"SELECT date_bin(%s, GREATEST(t_start, %s), %s) AS b, count(*) AS n FROM root_tracks "
-            f"WHERE {' AND '.join(where)} GROUP BY 1", [step, t_from, _origin(), *params])
+            f"SELECT id AS root, camera_id, GREATEST(t_start, %s) AS first_t, zone_path FROM root_tracks "
+            f"WHERE {' AND '.join(where)} ORDER BY first_t LIMIT 5000", [t_from, *params])
     else:
         where = ["e.type=%s", "t.cls = ANY(%s)", "e.t BETWEEN %s AND %s", "e.zone=%s"]
         params = [event, classes, t_from, t_to, zone]
@@ -190,21 +220,31 @@ def count_events(p: dict) -> dict:
             where.append("e.camera_id=%s")
             params.append(cam)
         rows = db.fetch_all(
-            f"""SELECT date_bin(%s, first_t, %s) AS b, count(*) AS n FROM (
-                  SELECT COALESCE(t.merged_into, t.id) AS root, min(e.t) AS first_t
-                    FROM events e JOIN tracks t ON t.id = e.track_id
-                   WHERE {' AND '.join(where)} GROUP BY 1) x GROUP BY 1""", [step, _origin(), *params])
-    counts = {r["b"]: int(r["n"]) for r in rows}
-    value = sum(counts.values())
+            f"""SELECT COALESCE(t.merged_into, t.id) AS root, min(e.camera_id) AS camera_id, min(e.t) AS first_t,
+                       ARRAY[%s]::text[] AS zone_path
+                  FROM events e JOIN tracks t ON t.id = e.track_id
+                 WHERE {' AND '.join(where)} GROUP BY 1 ORDER BY first_t LIMIT 5000""", [zone, *params])
+    o = _origin()
+    counts: dict[datetime, int] = {}
+    for r in rows:
+        b = o + ((r["first_t"] - o) // step) * step
+        counts[b] = counts.get(b, 0) + 1
+    value = len(rows)
     labels = _zone_labels(cam)
     noun = {"person": "people", "car": "cars", "motorcycle": "motorcycles", "bicycle": "bicycles",
             "truck": "trucks", "bus": "buses"}.get(cls, f"{cls} objects")
     zl = labels.get(zone, zone) if zone else None
-    verb = {"present": "seen", "enter": "entered", "exit": "left", "dwell": "stayed 10 s+ at"}[event]
+    verb = {"present": "seen", "enter": "entered", "exit": "left", "dwell": "stayed 10 s+ at",
+            "cross_in": "came in through", "cross_out": "went out through"}[event]
     label = f"{noun} {verb}" + (f" {zl}" if zl and event != "present" else (f" in {zl}" if zl else ""))
-    return {"value": value, "label": label, "level": "confirmed", "series": _fill_series(counts, t_from, t_to, step),
-            "bucket": "15min" if p.get("bucket") == "15min" else "hour", "camera_id": cam, "zone": zone, "cls": cls,
-            "event": event, "time_from": to_local(t_from).isoformat(), "time_to": to_local(t_to).isoformat()}
+    if event == "present":
+        label += f" (tracks ≥ {min_s:g} s)"
+    receipts = [{"track_id": int(r["root"]), "camera_id": r["camera_id"], "t": to_local(r["first_t"]).isoformat(),
+                 "zone": (r["zone_path"] or [None])[0] if zone else None} for r in rows]
+    return {"value": value, "label": label, "level": "confirmed",
+            "series": _fill_series(counts, span[0], span[1], step), "bucket": bucket, "camera_id": cam, "zone": zone,
+            "cls": cls, "event": event, "time_from": to_local(t_from).isoformat(), "time_to": to_local(t_to).isoformat(),
+            "_receipts": receipts}
 
 
 def peak_occupancy(p: dict) -> dict:

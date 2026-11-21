@@ -58,14 +58,17 @@ def test_run_agent_tool_loop(monkeypatch):
     monkeypatch.setattr(agent, "camera_context", lambda cam: "Current local time: 2026-11-21T10:00")
     executed = []
     monkeypatch.setattr(agent, "_exec_tool", lambda name, args, ref, token: executed.append((name, args)) or SEARCH_RESULT)
-    ans, calls = agent.run_agent("Laal shirt wala kab aaya?", None, ref="t", token=None)
+    deltas = []
+    ans, calls = agent.run_agent("Laal shirt wala kab aaya?", None, ref="t", token=None,
+                                 on_event=lambda k, d: deltas.append(d) if k == "text" else None)
     assert ans.show_track_ids == [12] and ans.language == "hinglish"
+    assert "".join(deltas) == "Laal shirt wala shayad 10:05 pe aaya tha."  # reply text streamed out of the JSON
     assert executed[0][0] == "search_tracks" and executed[0][1]["upper_color"] == "red"
     second = fake.responses.create_calls[1]["input"]
     outputs = [i for i in second if isinstance(i, dict) and i.get("type") == "function_call_output"]
     assert outputs and outputs[0]["call_id"] == "c1" and json.loads(outputs[0]["output"])["tool_call_index"] == 0
     first = fake.responses.create_calls[0]
-    assert first["instructions"] == agent.AGENT_SYSTEM  # stable system prompt first (prompt caching)
+    assert first["instructions"] == agent._system()  # stable system prompt first (prompt caching)
     assert all(t["strict"] for t in first["tools"])
     assert first["text"]["format"]["strict"] is True
 

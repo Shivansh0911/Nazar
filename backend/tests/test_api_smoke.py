@@ -51,9 +51,12 @@ def test_cameras_and_timeline(client, cam):
 def test_count_matches_sql(client, cam):
     r = client.get("/api/count", params={"camera_id": cam["id"], "event": "present", "from": cam["coverage_from"],
                                          "to": cam["coverage_to"]}).json()
-    sql = db.fetch_val("SELECT count(*) FROM root_tracks WHERE camera_id=%s AND cls='person' AND t_end >= %s AND t_start <= %s",
+    sql = db.fetch_val("SELECT count(*) FROM root_tracks WHERE camera_id=%s AND cls='person' AND t_end >= %s AND t_start <= %s "
+                       "AND t_end - t_start >= interval '1.5 seconds' AND COALESCE(max_conf, 1) >= 0.6",
                        (cam["id"], cam["coverage_from"], cam["coverage_to"]))
     assert r["value"] == sql
+    assert len(r["_receipts"]) == r["value"]  # every counted track is a receipt
+    assert sum(p["n"] for p in r["series"]) == r["value"]
 
 
 def test_structural_search_is_confirmed(client, cam):

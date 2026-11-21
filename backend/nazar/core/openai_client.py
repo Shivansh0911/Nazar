@@ -124,14 +124,32 @@ class NazarAI:
     def _record_tokens(self, kind: str, model: str, resp: Any, camera_id=None, ref=None, images=None) -> float:
         inp, cached, out = _usage_tokens(resp)
         cost, unknown = prices.cost_tokens(model, inp, cached, out)
+        tier = getattr(resp, "service_tier", None)
+        tier = tier if isinstance(tier, str) else None
+        if tier == "flex":
+            cost *= prices.FLEX_FACTOR  # Flex is billed at ~50 % of Standard
         usage.record(kind, model, camera_id=camera_id, ref=ref, input_tokens=inp, cached_tokens=cached,
-                     output_tokens=out, images=images, cost_usd=cost, unknown_price=unknown)
+                     output_tokens=out, images=images, cost_usd=cost, unknown_price=unknown, service_tier=tier)
         return cost
+
+    def _call_tiered(self, fn: Callable[[dict], Any], kwargs: dict, tier: str | None, what: str) -> Any:
+        """Try the Flex tier for background work; fall back to the default tier when Flex is busy/unavailable."""
+        if tier == "flex":
+            try:
+                return fn({**kwargs, "service_tier": "flex", "timeout": 120})
+            except AIKeyProblem:
+                raise
+            except Exception as e:
+                if self._is_model_missing(e) and "service_tier" not in str(e):
+                    raise
+                log.info("%s: flex tier unavailable (%s); using standard", what, type(e).__name__)
+        return self._retry(lambda: fn(kwargs), what)
 
     # ---- generic calls ----------------------------------------------------
     def parse(self, model: str, input: Any, schema: type[T], *, kind: str, instructions: str | None = None,
               camera_id: str | None = None, ref: str | None = None, images: int | None = None,
-              max_output_tokens: int | None = None, reasoning: str | None = None) -> tuple[T, float]:
+              max_output_tokens: int | None = None, reasoning: str | None = None,
+              tier: str | None = None) -> tuple[T, float]:
         kwargs: dict[str, Any] = {"model": model, "input": input, "text_format": schema}
         if reasoning:
             kwargs["reasoning"] = {"effort": reasoning}
@@ -139,7 +157,7 @@ class NazarAI:
             kwargs["instructions"] = instructions
         if max_output_tokens:
             kwargs["max_output_tokens"] = max_output_tokens
-        resp = self._retry(lambda: self.client.responses.parse(**kwargs), f"{kind}:{model}")
+        resp = self._call_tiered(lambda kw: self.client.responses.parse(**kw), kwargs, tier, f"{kind}:{model}")
         cost = self._record_tokens(kind, model, resp, camera_id, ref, images)
         parsed = getattr(resp, "output_parsed", None)
         if parsed is None:
@@ -166,6 +184,34 @@ class NazarAI:
         cost = self._record_tokens(kind, model, resp, camera_id, ref)
         return resp, cost
 
+    def agent_step_stream(self, *, model: str, input: list, tools: list | None = None, instructions: str | None = None,
+                          kind: str = "agent", ref: str | None = None, camera_id: str | None = None,
+                          text: dict | None = None, reasoning: str | None = None, on_delta=None) -> tuple[Any, float]:
+        """Like agent_step, but streams output text deltas to on_delta(str) as they arrive."""
+        kwargs: dict[str, Any] = {"model": model, "input": input}
+        if reasoning:
+            kwargs["reasoning"] = {"effort": reasoning}
+        if tools:
+            kwargs["tools"] = tools
+        if instructions:
+            kwargs["instructions"] = instructions
+        if text:
+            kwargs["text"] = text
+
+        def call():
+            with self.client.responses.stream(**kwargs) as stream:
+                for ev in stream:
+                    if on_delta is not None and getattr(ev, "type", "") == "response.output_text.delta":
+                        try:
+                            on_delta(ev.delta)
+                        except Exception:
+                            pass
+                return stream.get_final_response()
+
+        resp = self._retry(call, f"{kind}:{model}")
+        cost = self._record_tokens(kind, model, resp, camera_id, ref)
+        return resp, cost
+
     # ---- vision -------------------------------------------------------------
     def _vision_model(self) -> str:
         return self._vision_model_override or get_settings().OPENAI_VISION_MODEL
@@ -180,7 +226,7 @@ class NazarAI:
         try:
             return self.parse(model, inp, TrackCaption, kind="caption", instructions=CAPTION_SYSTEM,
                               camera_id=camera_id, ref=ref, images=len(images[:3]), max_output_tokens=1200,
-                              reasoning=get_settings().VISION_REASONING_EFFORT or None)
+                              reasoning=get_settings().VISION_REASONING_EFFORT or None, tier="flex")
         except (AIUnavailable, AIKeyProblem):
             raise
         except Exception as e:
@@ -192,7 +238,7 @@ class NazarAI:
                 self._vision_model_override = fb
                 return self.parse(fb, inp, TrackCaption, kind="caption", instructions=CAPTION_SYSTEM,
                                   camera_id=camera_id, ref=ref, images=len(images[:3]), max_output_tokens=1200,
-                              reasoning=get_settings().VISION_REASONING_EFFORT or None)
+                              reasoning=get_settings().VISION_REASONING_EFFORT or None, tier="flex")
             raise
 
     def vision_check(self, image: bytes, question: str, *, camera_id: str | None = None,

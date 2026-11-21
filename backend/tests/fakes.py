@@ -36,6 +36,33 @@ class FakeResponses:
         return result
 
 
+class _FakeStream:
+    def __init__(self, resp):
+        self.resp = resp
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def __iter__(self):
+        text = getattr(self.resp, "output_text", "") or ""
+        for i in range(0, len(text), 7):  # emit the final text in small deltas like the real API
+            yield SimpleNamespace(type="response.output_text.delta", delta=text[i:i + 7])
+
+    def get_final_response(self):
+        return self.resp
+
+
+def _stream(self, **kw):
+    r = self.create(**kw)
+    return _FakeStream(r)
+
+
+FakeResponses.stream = _stream
+
+
 def function_call(name: str, args: dict, call_id: str = "call_1"):
     return SimpleNamespace(type="function_call", name=name, arguments=json.dumps(args), call_id=call_id,
                            id="fc_" + call_id, status="completed",

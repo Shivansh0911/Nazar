@@ -52,9 +52,29 @@ Rules:
   Hinglish; English -> English. 1-3 short spoken-style sentences. Times like "रात 2:41" / "raat 2:41" / "2:41 AM".
 - Do not name evidence levels, except "pakka"/"confirmed" for tracker facts and "shayad"/"possible match" for
   uncertain matches. Never describe faces or guess identity, religion, caste or ethnicity.
+- Visual descriptions of objects, vehicles or scenes that the tracker may not label ("red scooter", "gas cylinder",
+  "was the shutter open", "yellow kurta with backpack") -> visual_search with a short ENGLISH visual phrase (translate
+  Hindi/Hinglish). It searches the local visual index and AI-verifies the top hits.
+- "Any analysis" (busiest hour, average time at counter, vehicles by type per hour, compare cameras, who stayed > 5
+  min, day-over-day) -> analytics_query with ONE PostgreSQL SELECT over these read-only views only:
+{views}
+  Use local times as timestamptz literals with +05:30. For people counts use v_tracks WHERE counted AND cls='person'.
+  Prefer count_events for simple "how many" questions (it also returns receipts).
+- "Same person/bag elsewhere / kahan kahan gaya" -> journey(track_id). "What happened in this clip" -> describe_clip.
+- "Right now / abhi" -> look_now (counts come from the tracker; set needs_vision only for non-countable questions).
+- "Today vs yesterday / is hafte vs pichle" -> compare_periods. "Where do people spend time" -> heatmap.
+- Security questions (loitering, abandoned bag, running, fall, snatching, "kuch ajeeb hua?") -> list_events.
+- "Watch for X / X pe nazar rakho" for an object class the tracker does not know -> teach_object.
+  "Report / FIR / incident report banao" -> make_report.
+- Never search, match or describe faces. If asked to find a face, say Nazar does not do face recognition and offer
+  clothing/appearance search instead.
+- If the request is vague (no time, no place, several meanings), ask ONE short clarifying question and give 2-4
+  tappable options in clarify instead of guessing; leave other fields empty.
 - In the final JSON: show_track_ids = up to 6 track ids taken from search_tracks results that best answer the
   question (empty if none); count_ref = the index of the count_events/peak_occupancy call whose number you quote,
-  else null; rule_id from create_rule, else null; followups = up to 3 short follow-up questions in the same language.
+  else null; rule_id from create_rule, else null; followups = up to 3 short follow-up questions in the same language;
+  charts = charts for analytics_query/compare results worth plotting (call_index of that tool call, x and y column
+  names); confidence = "low" if you are unsure you answered correctly, else "high".
 """
 
 COMPILER_SYSTEM = """You compile a shop owner's instruction (Hindi/English/Hinglish) into a watch rule for ONE camera.
@@ -121,10 +141,10 @@ TOOLS = [
             "camera_id": _nullable("string"),
             "zone": _nullable("string"),
             "cls": _nullable("string", enum=CLS_ENUM),
-            "event": _nullable("string", enum=["enter", "exit", "dwell", "present"]),
+            "event": _nullable("string", enum=["enter", "exit", "dwell", "present", "cross_in", "cross_out"]),
             "time_from": {"type": "string"},
             "time_to": {"type": "string"},
-            "bucket": _nullable("string", enum=["hour", "15min"]),
+            "bucket": _nullable("string", enum=["10s", "1min", "5min", "15min", "hour", "day"]),
         }),
     _fn("peak_occupancy", "Maximum number of tracks present at the same time, and when.", {
         "camera_id": {"type": "string"},
@@ -143,6 +163,66 @@ TOOLS = [
             "camera_id": {"type": "string"},
             "text": {"type": "string", "description": "the owner's own words"},
         }),
+    _fn("analytics_query", "Run ONE read-only SELECT over the semantic views (database facts).", {
+        "sql": {"type": "string"},
+        "title": {"type": "string", "description": "short title for the result, owner's language"},
+    }),
+    _fn("visual_search", "Search the local visual index (crops + scene frames) by an English visual phrase; top hits "
+        "are AI-verified. Use for objects/vehicles/clothing/scene states.", {
+            "text": {"type": "string", "description": "short English visual phrase, e.g. 'red scooter'"},
+            "camera_ids": {"type": ["array", "null"], "items": {"type": "string"}},
+            "time_from": {"type": "string"},
+            "time_to": {"type": "string"},
+            "cls": {"type": ["array", "null"], "items": {"type": "string"}},
+            "limit": _nullable("integer"),
+        }),
+    _fn("journey", "Where else the same-looking person/bag/vehicle was seen (other cameras/times), by appearance only.", {
+        "track_id": {"type": "integer"},
+        "hours": _nullable("number"),
+    }),
+    _fn("describe_clip", "Describe what happens in a moment (AI-generated, from blurred frames).", {
+        "track_id": _nullable("integer"),
+        "camera_id": _nullable("string"),
+        "time": _nullable("string", description="ISO local time when no track_id"),
+    }),
+    _fn("look_now", "What a camera sees right now: tracker counts + optional vision answer on the latest frame.", {
+        "camera_id": {"type": "string"},
+        "question": _nullable("string"),
+        "needs_vision": {"type": "boolean"},
+    }),
+    _fn("compare_periods", "Compare a count between two periods (SQL facts).", {
+        "camera_id": _nullable("string"),
+        "zone": _nullable("string"),
+        "cls": _nullable("string", enum=CLS_ENUM),
+        "event": _nullable("string", enum=["enter", "exit", "dwell", "present", "cross_in", "cross_out"]),
+        "a_from": {"type": "string"}, "a_to": {"type": "string"}, "a_label": {"type": "string"},
+        "b_from": {"type": "string"}, "b_to": {"type": "string"}, "b_label": {"type": "string"},
+    }),
+    _fn("heatmap", "Where people/vehicles spent time on a camera (image).", {
+        "camera_id": {"type": "string"},
+        "cls": _nullable("string", enum=CLS_ENUM),
+        "time_from": {"type": "string"},
+        "time_to": {"type": "string"},
+    }),
+    _fn("list_events", "Security events (loitering, abandoned_object, object_removed, running, fall, crowding, "
+        "after_hours, possible_snatch, wrong_way) and unusual-activity hours.", {
+            "camera_id": _nullable("string"),
+            "time_from": {"type": "string"},
+            "time_to": {"type": "string"},
+            "types": {"type": ["array", "null"], "items": {"type": "string"}},
+        }),
+    _fn("teach_object", "Start detecting a new kind of object on a camera from words (open-vocabulary).", {
+        "camera_id": {"type": "string"},
+        "name": {"type": "string", "description": "short English object name, e.g. 'gas cylinder'"},
+        "alert": {"type": "boolean", "description": "true if the owner wants to be alerted when it appears"},
+    }),
+    _fn("make_report", "Create a police-ready incident PDF for an alert, security event or tracks.", {
+        "title": {"type": "string"},
+        "alert_id": _nullable("integer"),
+        "sec_event_id": _nullable("integer"),
+        "track_ids": {"type": ["array", "null"], "items": {"type": "integer"}},
+        "language": {"type": "string", "enum": ["en", "hi"]},
+    }),
 ]
 
 ANSWER_SCHEMA = {
@@ -154,8 +234,19 @@ ANSWER_SCHEMA = {
         "count_ref": {"type": ["integer", "null"]},
         "rule_id": {"type": ["integer", "null"]},
         "followups": {"type": "array", "items": {"type": "string"}},
+        "charts": {"type": "array", "items": {
+            "type": "object", "additionalProperties": False,
+            "required": ["type", "title", "call_index", "x", "y", "unit"],
+            "properties": {"type": {"type": "string", "enum": ["bar", "line", "pie", "table"]},
+                           "title": {"type": "string"}, "call_index": {"type": "integer"},
+                           "x": {"type": "string"}, "y": {"type": "string"}, "unit": {"type": "string"}}}},
+        "confidence": {"type": "string", "enum": ["high", "low"]},
+        "clarify": {"type": ["object", "null"], "additionalProperties": False, "required": ["question", "options"],
+                    "properties": {"question": {"type": "string"},
+                                   "options": {"type": "array", "items": {"type": "string"}}}},
     },
-    "required": ["reply_text", "language", "show_track_ids", "count_ref", "rule_id", "followups"],
+    "required": ["reply_text", "language", "show_track_ids", "count_ref", "rule_id", "followups", "charts",
+                 "confidence", "clarify"],
     "additionalProperties": False,
 }
 
@@ -167,6 +258,9 @@ class AgentAnswer(BaseModel):
     count_ref: int | None = None
     rule_id: int | None = None
     followups: list[str] = []
+    charts: list[dict] = []
+    confidence: Literal["high", "low"] = "high"
+    clarify: dict | None = None
 
 
 # ------------------------------------------------------------------------------------------------ context
@@ -283,6 +377,40 @@ def _exec_tool(name: str, args: dict, ref: str, token: str | None) -> dict:
         d = compile_rule(a.get("text", ""), a.get("camera_id", ""), ref=ref, token=token)
         return {k: d.get(k) for k in ("ok", "rule_id", "human", "question", "missing_zone_label")} | {
             "replay_count": (d.get("replay") or {}).get("count"), "_draft": d}
+    from . import agent_tools2 as t2
+
+    if name == "analytics_query":
+        from .analytics import UnsafeSQL, run
+
+        try:
+            r = run(a.get("sql", ""))
+        except UnsafeSQL as e:
+            return {"error": f"rejected: {e}"}
+        return {**r, "title": a.get("title"), "rows": r["rows"][:200], "_all_rows": r["rows"]}
+    if name == "visual_search":
+        return t2.visual_search_tool(a, ref)
+    if name == "journey":
+        return t2.journey_tool(a)
+    if name == "describe_clip":
+        return t2.describe_clip(a, ref)
+    if name == "look_now":
+        return t2.look_now(a, ref)
+    if name == "compare_periods":
+        return t2.compare_periods(a)
+    if name == "heatmap":
+        return t2.heatmap(a)
+    if name == "list_events":
+        return t2.list_events(a)
+    if name == "teach_object":
+        from .teach import teach_from_text
+
+        return teach_from_text(a.get("camera_id", ""), a.get("name", ""), alert=bool(a.get("alert")), ref=ref)
+    if name == "make_report":
+        from .reports import create_report
+
+        return create_report(title=a.get("title") or "Incident", alert_id=a.get("alert_id"),
+                             sec_event_id=a.get("sec_event_id"), track_ids=a.get("track_ids"),
+                             language=a.get("language") or "en", token=token)
     return {"error": f"unknown tool {name}"}
 
 
@@ -296,18 +424,81 @@ def _item_dict(item: Any) -> dict:
     return d
 
 
-def run_agent(question: str, camera_id: str | None, *, ref: str, token: str | None) -> tuple[AgentAnswer, list[dict]]:
+def _system() -> str:
+    from .analytics import describe_views
+
+    return AGENT_SYSTEM.replace("{views}", describe_views())
+
+
+class _ReplyStream:
+    """Extracts the growing value of "reply_text" from streamed JSON and forwards new characters."""
+
+    def __init__(self, emit):
+        self.buf = ""
+        self.sent = 0
+        self.emit = emit
+
+    def feed(self, delta: str) -> None:
+        self.buf += delta
+        m = re.search(r'"reply_text"\s*:\s*"', self.buf)
+        if not m:
+            return
+        out = []
+        i = m.end()
+        while i < len(self.buf):
+            ch = self.buf[i]
+            if ch == '"':
+                break
+            if ch == "\\":
+                if i + 1 >= len(self.buf):
+                    break
+                nxt = self.buf[i + 1]
+                if nxt == "u":
+                    if i + 6 > len(self.buf):
+                        break
+                    try:
+                        out.append(chr(int(self.buf[i + 2:i + 6], 16)))
+                    except ValueError:
+                        pass
+                    i += 6
+                    continue
+                out.append({"n": "\n", "t": "\t", '"': '"', "\\": "\\", "/": "/"}.get(nxt, nxt))
+                i += 2
+                continue
+            out.append(ch)
+            i += 1
+        text = "".join(out)
+        if len(text) > self.sent:
+            self.emit(text[self.sent:])
+            self.sent = len(text)
+
+
+STATUS = {"count_events": "Counting from the tracker…", "search_tracks": "Searching tracks…",
+          "visual_search": "Searching the visual index and checking the best matches…",
+          "analytics_query": "Running the analysis…", "journey": "Following it across cameras…",
+          "describe_clip": "Looking at the clip…", "look_now": "Looking at the camera now…",
+          "compare_periods": "Comparing periods…", "heatmap": "Drawing the heatmap…",
+          "list_events": "Checking security events…", "create_rule": "Building the rule and replaying it…",
+          "teach_object": "Teaching the camera a new object…", "make_report": "Preparing the incident report…",
+          "peak_occupancy": "Finding the busiest moment…", "camera_gaps": "Checking camera coverage…"}
+
+
+def run_agent(question: str, camera_id: str | None, *, ref: str, token: str | None, model: str | None = None,
+              on_event=None) -> tuple[AgentAnswer, list[dict]]:
     ai = get_ai()
-    model = get_settings().OPENAI_AGENT_MODEL
+    model = model or get_settings().OPENAI_AGENT_MODEL
     inp: list[dict] = [{"role": "developer", "content": camera_context(camera_id)},
                        {"role": "user", "content": question}]
     calls: list[dict] = []
     text_fmt = {"format": {"type": "json_schema", "name": "agent_answer", "schema": ANSWER_SCHEMA, "strict": True}}
+    emit = (lambda kind, data: on_event(kind, data)) if on_event else (lambda kind, data: None)
     for rnd in range(MAX_ROUNDS + 1):
         last = rnd == MAX_ROUNDS
-        resp, _ = ai.agent_step(model=model, input=inp, tools=None if last else TOOLS, instructions=AGENT_SYSTEM,
-                                text=text_fmt, ref=ref, camera_id=camera_id,
-                                reasoning=get_settings().AGENT_REASONING_EFFORT or None)
+        rs = _ReplyStream(lambda t: emit("text", t))
+        resp, _ = ai.agent_step_stream(model=model, input=inp, tools=None if last else TOOLS, instructions=_system(),
+                                       text=text_fmt, ref=ref, camera_id=camera_id,
+                                       reasoning=get_settings().AGENT_REASONING_EFFORT or None,
+                                       on_delta=rs.feed if on_event else None)
         fcalls = [o for o in (resp.output or []) if getattr(o, "type", None) == "function_call"]
         if not fcalls:
             raw = getattr(resp, "output_text", "") or ""
@@ -319,7 +510,8 @@ def run_agent(question: str, camera_id: str | None, *, ref: str, token: str | No
         for o in resp.output or []:
             if getattr(o, "type", None) in ("function_call", "reasoning"):
                 inp.append(_item_dict(o))
-        for fc in fcalls:
+
+        def run_one(fc):
             try:
                 args = json.loads(fc.arguments or "{}")
             except json.JSONDecodeError:
@@ -329,12 +521,35 @@ def run_agent(question: str, camera_id: str | None, *, ref: str, token: str | No
             except Exception as e:
                 log.warning("tool %s failed: %s", fc.name, e)
                 result = {"error": str(e)[:300]}
+            return fc, args, result
+
+        for fc in fcalls:
+            emit("status", STATUS.get(fc.name, "Working…"))
+        if len(fcalls) > 1:  # parallel tool calls
+            from concurrent.futures import ThreadPoolExecutor
+
+            with ThreadPoolExecutor(max_workers=min(4, len(fcalls))) as pool:
+                outs = list(pool.map(run_one, fcalls))
+        else:
+            outs = [run_one(fcalls[0])]
+        for fc, args, result in outs:
             idx = len(calls)
             calls.append({"index": idx, "name": fc.name, "args": args, "result": result})
-            model_view = {k: v for k, v in result.items() if k != "_draft"} if isinstance(result, dict) else result
+            model_view = {k: v for k, v in result.items() if not k.startswith("_")} if isinstance(result, dict) else result
+            if isinstance(model_view, dict) and fc.name == "visual_search":
+                model_view = {**model_view, "hits": [{k: h.get(k) for k in ("kind", "id", "track_id", "camera_id", "cls",
+                                                                              "t", "level", "why")}
+                                                     for h in model_view.get("hits", [])]}
             inp.append({"type": "function_call_output", "call_id": fc.call_id,
                         "output": json.dumps({"tool_call_index": idx, **model_view}, default=str)[:20000]})
     raise RuntimeError("agent did not finish")
+
+
+def _thumbs(track_ids: list[int], token: str | None) -> dict[int, str | None]:
+    if not track_ids:
+        return {}
+    rows = db.fetch_all("SELECT id, crop_keys FROM tracks WHERE id = ANY(%s)", (list(track_ids),))
+    return {r["id"]: storage.url((r["crop_keys"] or [None])[0], token) for r in rows}
 
 
 def assemble(answer: AgentAnswer, calls: list[dict], token: str | None) -> dict:
@@ -345,16 +560,28 @@ def assemble(answer: AgentAnswer, calls: list[dict], token: str | None) -> dict:
             for r in c["result"].get("results", []):
                 found.setdefault(r["track_id"], r)
     clips = []
-    for tid in answer.show_track_ids[:6]:
-        r = found.get(int(tid))
-        if not r:
-            continue  # the model may only show tracks a tool actually returned
-        keys = (db.fetch_one("SELECT crop_keys FROM tracks WHERE id=%s", (r["track_id"],)) or {}).get("crop_keys") or []
+    shown = [int(t) for t in answer.show_track_ids[:6] if int(t) in found]
+    thumbs = _thumbs(shown, token)
+    for tid in shown:
+        r = found[tid]
         clips.append({"track_id": r["track_id"], "camera_id": r["camera_id"], "cls": r["cls"], "t_start": r["t_start"],
                       "t_end": r["t_end"], "level": r["level"], "why": r["why"], "caption": r.get("caption"),
-                      "thumb_url": storage.url(keys[0], token) if keys else None, "score": r.get("score", 0.0),
-                      "zones": r.get("zones", [])})
+                      "thumb_url": thumbs.get(tid), "score": r.get("score", 0.0), "zones": r.get("zones", []),
+                      "kind": "track"})
+    # visual search hits (tracks + scene keyframes); verified "no" hits were already dropped by the server
+    for c in calls:
+        if c["name"] == "visual_search" and isinstance(c["result"], dict):
+            for h in c["result"].get("hits", [])[:8]:
+                if any(x.get("kind") == h["kind"] and (x.get("track_id") == h.get("track_id") if h["kind"] == "track"
+                                                     else x.get("keyframe_id") == h["id"]) for x in clips):
+                    continue
+                clips.append({"track_id": h.get("track_id"), "keyframe_id": h["id"] if h["kind"] == "keyframe" else None,
+                              "camera_id": h["camera_id"], "cls": h["cls"], "t_start": h["t_start"], "t_end": h["t_end"],
+                              "level": h["level"], "why": h["why"], "caption": h.get("caption"),
+                              "thumb_url": storage.url(h.get("thumb_key"), token), "score": h["sim"],
+                              "zones": h.get("zones", []), "kind": h["kind"], "verified": h.get("verified")})
     clips.sort(key=lambda c: LEVEL_ORDER[c["level"]])  # a Candidate is never placed above Probable/Confirmed
+    clips = clips[:10]
     count = None
     count_calls = [c for c in calls if c["name"] in ("count_events", "peak_occupancy") and "error" not in c["result"]]
     ref_call = next((c for c in count_calls if c["index"] == answer.count_ref), None)
@@ -363,11 +590,16 @@ def assemble(answer: AgentAnswer, calls: list[dict], token: str | None) -> dict:
     if ref_call is not None:
         r = ref_call["result"]
         if ref_call["name"] == "count_events":
+            rec = r.get("_receipts") or []
+            th = _thumbs([x["track_id"] for x in rec[:48]], token)
             count = {"value": r["value"], "label": r["label"], "level": "confirmed", "series": r["series"],
-                     "bucket": r.get("bucket", "hour")}
+                     "bucket": r.get("bucket", "hour"),
+                     "receipts": [{**x, "thumb_url": th.get(x["track_id"]), "level": "confirmed"} for x in rec[:48]],
+                     "receipts_total": len(rec), "receipt_ids": [x["track_id"] for x in rec[:2000]],
+                     "receipt_times": [x["t"] for x in rec[:2000]]}
         else:
             count = {"value": r["max"], "label": "most at the same time" + (f" ({r['at'][11:16]})" if r.get("at") else ""),
-                     "level": "confirmed", "series": [], "bucket": "hour"}
+                     "level": "confirmed", "series": [], "bucket": "hour", "receipts": [], "receipts_total": 0}
     rule = None
     for c in calls:
         if c["name"] == "create_rule" and isinstance(c["result"], dict) and c["result"].get("_draft"):
@@ -379,21 +611,114 @@ def assemble(answer: AgentAnswer, calls: list[dict], token: str | None) -> dict:
         if c["name"] == "camera_gaps" and isinstance(c["result"], dict):
             for g in c["result"].get("gaps", []):
                 gaps.append({"camera_id": c["result"]["camera_id"], **g})
-    return {"clips": clips, "count": count, "rule": rule, "gaps": gaps}
+    # analytics tables + charts (data from the tool result, never from the model)
+    tables, charts, images, notes = [], [], [], []
+    by_index = {c["index"]: c for c in calls}
+    for c in calls:
+        r = c["result"] if isinstance(c["result"], dict) else {}
+        if c["name"] == "analytics_query" and "rows" in r:
+            tables.append({"title": r.get("title") or "Result", "columns": r["columns"], "rows": r["_all_rows"][:200],
+                           "row_count": r["row_count"], "sql": r["sql"], "level": "confirmed", "call_index": c["index"]})
+        elif c["name"] == "compare_periods" and "a" in r:
+            tables.append({"title": r["label"], "columns": ["period", "value"],
+                           "rows": [{"period": r["a"]["label"], "value": r["a"]["value"]},
+                                    {"period": r["b"]["label"], "value": r["b"]["value"]}],
+                           "row_count": 2, "sql": None, "level": "confirmed", "call_index": c["index"],
+                           "change_pct": r.get("change_pct")})
+        elif c["name"] in ("heatmap", "look_now") and r.get("image_key"):
+            images.append({"url": storage.url(r["image_key"], token), "kind": c["name"], "camera_id": r.get("camera_id"),
+                           "caption": r.get("vision_answer") or (f"{r.get('tracks', 0)} tracks" if c["name"] == "heatmap" else None)})
+        elif c["name"] == "describe_clip" and r.get("description"):
+            notes.append({"kind": "description", "text": r["description"], "ai_generated": True, "level": "candidate",
+                          "camera_id": r.get("camera_id"), "from": r.get("from"), "to": r.get("to")})
+    for ch in answer.charts[:3]:
+        src = by_index.get(int(ch.get("call_index", -1)))
+        if not src:
+            continue
+        t = next((t for t in tables if t["call_index"] == src["index"]), None)
+        if not t or ch.get("x") not in t["columns"] or ch.get("y") not in t["columns"]:
+            continue
+        charts.append({"type": ch["type"], "title": ch["title"], "x": ch["x"], "y": ch["y"], "unit": ch.get("unit", ""),
+                       "data": [{"x": row[ch["x"]], "y": row[ch["y"]]} for row in t["rows"][:100]]})
+    journey_out = None
+    for c in calls:
+        if c["name"] == "journey" and isinstance(c["result"], dict) and c["result"].get("steps"):
+            from .visual import with_urls
+
+            j = dict(c["result"])
+            j["steps"] = with_urls([dict(s) for s in j["steps"]], token)
+            journey_out = j
+    sec = []
+    for c in calls:
+        if c["name"] == "list_events" and isinstance(c["result"], dict):
+            sec.extend(c["result"].get("events", []))
+    report = next((c["result"] for c in calls if c["name"] == "make_report" and isinstance(c["result"], dict)
+                   and c["result"].get("pdf_url")), None)
+    taught = next((c["result"] for c in calls if c["name"] == "teach_object" and isinstance(c["result"], dict)
+                   and c["result"].get("ok")), None)
+    return {"clips": clips, "count": count, "rule": rule, "gaps": gaps, "tables": tables, "charts": charts,
+            "images": images, "notes": notes, "journey": journey_out, "sec_events": sec, "report": report,
+            "taught": taught}
 
 
 def tts_name(ref: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_-]", "_", ref) + ".mp3"
 
 
+_cache: dict[tuple, tuple[float, dict]] = {}
+_cache_lock = threading.Lock()
+CACHE_S = 60.0
+ESCALATE_TOOLS = {"create_rule", "make_report", "teach_object"}
+
+
+def _route(question: str, on_event, ref: str, camera_id: str | None, token: str | None):
+    """Cheap model first; escalate to the agent model when it is unsure, fails, or the task changes state."""
+    s = get_settings()
+    fast = s.OPENAI_AGENT_FAST_MODEL or s.OPENAI_AGENT_MODEL
+    if fast and fast != s.OPENAI_AGENT_MODEL:
+        try:
+            ans, calls = run_agent(question, camera_id, ref=ref, token=token, model=fast, on_event=on_event)
+            errored = any(isinstance(c["result"], dict) and c["result"].get("error") for c in calls)
+            if ans.confidence == "high" and not errored:
+                return ans, calls, fast
+            log.info("escalating to %s (confidence=%s, tool error=%s)", s.OPENAI_AGENT_MODEL, ans.confidence, errored)
+            if on_event:
+                on_event("reset", "")
+        except Exception as e:
+            log.warning("fast model failed (%s); escalating", e)
+            if on_event:
+                on_event("reset", "")
+    ans, calls = run_agent(question, camera_id, ref=ref, token=token, model=s.OPENAI_AGENT_MODEL, on_event=on_event)
+    return ans, calls, s.OPENAI_AGENT_MODEL
+
+
 def ask(question: str, camera_id: str | None, *, token: str | None, transcript: str | None = None,
         input_kind: str = "text", t_start: float | None = None, ref: str | None = None,
-        wait_audio: bool = False) -> dict:
+        wait_audio: bool = False, on_event=None) -> dict:
     """Answer a question. The voice reply is synthesized in the background: the text answer returns as soon as the
-    agent is done and `audio_url` points at /api/ask/audio/<name>, which waits until the mp3 is ready."""
+    agent is done and `audio_url` points at /api/ask/audio/<name>, which waits until the mp3 is ready.
+    on_event(kind, data) receives 'status', 'text' (reply deltas), 'reset' while the agent works (SSE)."""
     t0 = t_start or time.perf_counter()
     ref = ref or f"q:{uuid.uuid4().hex[:12]}"
-    answer, calls = run_agent(question, camera_id, ref=ref, token=token)
+    ckey = (" ".join(question.lower().split()), camera_id)
+    with _cache_lock:
+        hit = _cache.get(ckey)
+    if hit and time.time() - hit[0] < CACHE_S and input_kind == "text":
+        resp = dict(hit[1])
+        resp["cached"] = True
+        resp["latency_ms"] = int((time.perf_counter() - t0) * 1000)
+        if on_event:
+            on_event("text", resp["reply_text"])
+        return resp
+    first_text: dict[str, float] = {}
+
+    def ev(kind, data):
+        if kind == "text" and "t" not in first_text:
+            first_text["t"] = time.perf_counter()
+        if on_event:
+            on_event(kind, data)
+
+    answer, calls, model_used = _route(question, ev, ref, camera_id, token)
     lang = answer.language
     name = tts_name(ref)
     key = f"tts/{name}"
@@ -420,25 +745,29 @@ def ask(question: str, camera_id: str | None, *, token: str | None, transcript: 
                 log.warning("could not update query audio: %s", e)
 
     th = threading.Thread(target=do_tts, daemon=True)
-    th.start()
+    th.start()  # TTS starts the moment the text is complete
     parts = assemble(answer, calls, token)
     if wait_audio:
         th.join(timeout=30)
     latency = int((time.perf_counter() - t0) * 1000)
+    first_ms = int((first_text["t"] - t0) * 1000) if "t" in first_text else latency
     cost = float(db.fetch_val("SELECT COALESCE(sum(cost_usd),0) FROM usage WHERE ref=%s", (ref,)) or 0)
     base = get_settings().API_BASE_URL.rstrip("/")
     audio_url = f"{base}/api/ask/audio/{name}" + (f"?token={token}" if token else "")
     resp = {"query_id": 0, "transcript": transcript, "language": lang, "reply_text": answer.reply_text,
-            "audio_url": audio_url, "count": parts["count"], "clips": parts["clips"],
-            "rule": parts["rule"], "gaps": parts["gaps"], "followups": answer.followups[:3], "cost_usd": round(cost, 6),
-            "cost_inr": round(cost * get_settings().USD_INR, 4),
-            "latency_ms": latency}
+            "audio_url": audio_url, **parts, "followups": answer.followups[:3], "clarify": answer.clarify,
+            "cost_usd": round(cost, 6), "cost_inr": round(cost * get_settings().USD_INR, 4), "latency_ms": latency,
+            "first_text_ms": first_ms, "model": model_used}
     plan = [{"index": c["index"], "name": c["name"], "args": c["args"]} for c in calls]
     stored = {k: v for k, v in resp.items() if k != "audio_url"}
-    qid = db.fetch_one("INSERT INTO queries(camera_id, input_kind, transcript, language, plan, answer, latency_ms, cost_usd) "
-                       "VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
-                       (camera_id, input_kind, transcript or question, lang, Jsonb(plan), Jsonb(stored), latency, cost))["id"]
+    qid = db.fetch_one("INSERT INTO queries(camera_id, input_kind, transcript, language, plan, answer, latency_ms, "
+                       "cost_usd, model, first_text_ms) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                       (camera_id, input_kind, transcript or question, lang, Jsonb(plan), Jsonb(stored), latency, cost,
+                        model_used, first_ms))["id"]
     qid_box["id"] = qid
     qid_ready.set()
     resp["query_id"] = qid
+    if not parts.get("rule") and not parts.get("report") and not parts.get("taught"):
+        with _cache_lock:
+            _cache[ckey] = (time.time(), resp)
     return resp

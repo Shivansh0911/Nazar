@@ -20,12 +20,20 @@ VEHICLES = ("car", "motorcycle", "bus", "truck", "bicycle")
 ELIGIBLE_SQL = ("enriched = false AND active = false AND merged_into IS NULL AND enrich_attempts < 3 "
                 "AND t_end - t_start >= make_interval(secs => %(min_s)s) "
                 "AND (cls NOT IN ('car','motorcycle','bus','truck','bicycle') "
-                "     OR t_end - t_start >= make_interval(secs => %(veh_s)s))")
+                "     OR t_end - t_start >= make_interval(secs => %(veh_s)s)) "
+                "AND (%(mode)s = 'full' OR (%(mode)s = 'smart' AND enrich_requested))")
 
 
 def eligible_params() -> dict:
     s = get_settings()
-    return {"min_s": s.ENRICH_MIN_SECONDS, "veh_s": s.ENRICH_VEHICLE_MIN_SECONDS}
+    mode = (s.ENRICH_MODE or "smart").lower()
+    return {"min_s": s.ENRICH_MIN_SECONDS, "veh_s": s.ENRICH_VEHICLE_MIN_SECONDS, "mode": mode}
+
+
+def request(track_ids: list[int]) -> None:
+    """Smart mode: ask the enricher to describe these tracks (Flex tier, background)."""
+    if track_ids:
+        db.execute("UPDATE tracks SET enrich_requested=true WHERE id = ANY(%s) AND NOT enriched", (list(track_ids),))
 
 
 def embed_text(cls: str, c: TrackCaption) -> str:

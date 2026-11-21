@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     ACTIVE_UPSERT_S: float = 1.0
     MOTION_THRESH: float = 0.002
 
+    COUNT_MIN_SECONDS: float = 1.5  # "people seen" = root tracks at least this long ...
+    COUNT_MIN_CONF: float = 0.6  # ... with at least this max detection confidence
+    ENRICH_MODE: str = "smart"  # off | smart (captions only on demand) | full (v1: caption every track)
     ENRICH_MIN_SECONDS: float = 1.0
     ENRICH_VEHICLE_MIN_SECONDS: float = 5.0  # passing traffic is not described; parked/slow vehicles are
     VISION_REASONING_EFFORT: str = "none"  # captions are simple structured output; '' = model default
@@ -61,6 +64,16 @@ class Settings(BaseSettings):
     LEVEL_PROBABLE_SIM: float = 0.35
     LEVEL_CANDIDATE_SIM: float = 0.25
     MEDIAMTX_HOST: str = "localhost"
+    VISION_URL: str = "http://127.0.0.1:8010"
+    VERIFY_MIN_SIM: float = 0.05  # SigLIP text->image cosine needed (with an AI "yes") for Probable
+    JOURNEY_MIN_SIM: float = 0.80  # SigLIP image->image cosine for "same-looking" across cameras
+    TELEGRAM_BOT_TOKEN: str = ""
+    TELEGRAM_BOT_USERNAME: str = ""
+    TELEGRAM_ALLOWED_CHAT_IDS: str = ""
+    FERNET_KEY: str = ""
+    DIGEST_TIME: str = "08:00"
+    OPENAI_REALTIME_MODEL: str = "gpt-realtime-2.1-mini"
+    OPENAI_AGENT_FAST_MODEL: str = "gpt-6-luna"  # routes simple questions; escalates to OPENAI_AGENT_MODEL
     AGENT_REASONING_EFFORT: str = "none"  # agent/compiler reasoning effort (none|low|medium|high); "" = model default
     ALLOW_LAN_CAMERAS: bool = True  # shop DVRs live on 192.168.x.x; set false on a public server
     PUBLIC_HOST: str = ""  # host/IP phones use to reach MediaMTX (Add camera -> Phone); default = API host

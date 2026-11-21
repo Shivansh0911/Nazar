@@ -29,7 +29,14 @@ def jobs_once(ev: eventize_loop.Eventizer) -> int:
             "SELECT count(*) FROM tracks WHERE job_id=%s AND updated_at > %s", (j["id"], ev.cursor)) if ev.cursor else 1
         if pending_events:
             continue
-        if has_key:
+        if (get_settings().ENRICH_MODE or "smart").lower() != "full":
+            # smart/off: descriptions are on demand; ready once events exist and the local index caught up (<= 5 min)
+            left = db.fetch_val("SELECT count(*) FROM tracks WHERE job_id=%s AND NOT vis_indexed AND NOT active "
+                                "AND updated_at > now() - interval '5 minutes'", (j["id"],))
+            if left:
+                continue
+            db.execute("UPDATE jobs SET state='ready', updated_at=now() WHERE id=%s", (j["id"],))
+        elif has_key:
             left = db.fetch_val(f"SELECT count(*) FROM tracks WHERE job_id=%(job)s AND {enricher.ELIGIBLE_SQL}",
                                 {**enricher.eligible_params(), "job": j["id"]})
             if left:

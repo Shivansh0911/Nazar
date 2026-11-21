@@ -19,6 +19,7 @@ DEFAULT_PRICES: dict[str, dict] = {
     "gpt-4o-transcribe": {"audio_minute": 0.006},
     "gpt-4o-mini-tts": {"audio_minute": 0.015},
 }
+FLEX_FACTOR = 0.5  # Flex processing is priced at about half of Standard
 _warned: set[str] = set()
 
 

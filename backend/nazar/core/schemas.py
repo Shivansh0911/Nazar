@@ -50,6 +50,7 @@ class SeriesPoint(BaseModel):
 
 
 class CountResult(BaseModel):
+    model_config = {"extra": "allow"}  # receipts, receipts_total, receipt_ids
     value: int
     label: str
     level: Literal["confirmed"] = "confirmed"
@@ -58,7 +59,8 @@ class CountResult(BaseModel):
 
 
 class ClipItem(BaseModel):
-    track_id: int
+    model_config = {"extra": "allow"}  # kind, keyframe_id, verified
+    track_id: int | None = None
     camera_id: str
     cls: str = "person"
     t_start: datetime
@@ -93,6 +95,7 @@ class RuleDraft(BaseModel):
 
 
 class AskResponse(BaseModel):
+    model_config = {"extra": "allow"}  # v2 cards: tables, charts, images, notes, journey, sec_events, report, taught
     query_id: int
     transcript: str | None = None
     language: str = "en"
@@ -106,6 +109,17 @@ class AskResponse(BaseModel):
     cost_usd: float = 0.0
     cost_inr: float = 0.0
     latency_ms: int = 0
+    first_text_ms: int | None = None
+    model: str | None = None
+    clarify: dict | None = None
+    tables: list[dict] = []
+    charts: list[dict] = []
+    images: list[dict] = []
+    notes: list[dict] = []
+    journey: dict | None = None
+    sec_events: list[dict] = []
+    report: dict | None = None
+    taught: dict | None = None
 
 
 class AlertOut(BaseModel):
