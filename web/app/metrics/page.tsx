@@ -35,6 +35,7 @@ export default function MetricsPage() {
   const perVerify = u?.verify_per_call_inr ?? null;
   // projection from measured unit costs: indexing is local (0); questions + AI checks on alerts + captions on alerts
   const projection = perQ !== null ? questions * perQ + alertsDay * ((perVerify ?? 0) + (perCap ?? 0)) : null;
+  const battery = (m?.accuracy as { battery?: { passed: number; total: number; cost_p50_inr: number } } | undefined)?.battery;
   const acc = (m?.accuracy || {}) as Record<string, { rows?: { name: string; truth: number; counted: number; err_pct: number }[]; summary?: string } | null>;
 
   return (
@@ -45,7 +46,7 @@ export default function MetricsPage() {
         <div className="space-y-5">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <Stat accent label="AI cost to index" value="₹0" hint={`${m.index.footage_hours.toFixed(1)} h footage · ${m.index.tracks_indexed.toLocaleString("en-IN")} tracks + ${m.index.keyframes_indexed.toLocaleString("en-IN")} frames indexed locally`} />
-            <Stat label="Per question" value={fmtInr(u.question_p50_inr)} hint={`p50 · p90 ${fmtInr(u.question_p90_inr)} · ${u.questions} asked`} />
+            <Stat label="Per question" value={fmtInr(u.question_p50_inr)} hint={`p50 incl. the voice reply · p90 ${fmtInr(u.question_p90_inr)} · ${u.questions} asked`} />
             <Stat label="Per AI check" value={fmtInr(u.verify_per_call_inr)} hint={`${u.verifications} verifications${u.verify_per_image_inr ? ` · ${fmtInr(u.verify_per_image_inr, 3)}/image` : ""}`} />
             <Stat label="Per incident report" value={fmtInr(u.report_inr)} hint={`${u.reports} report${u.reports === 1 ? "" : "s"} · incl. AI description`} />
           </div>
@@ -72,6 +73,7 @@ export default function MetricsPage() {
                 <div><div className="text-xs text-muted">Full answer (p50)</div><div className="font-display text-4xl">{ms(m.latency.p50_ms)}</div><div className="text-[11px] text-muted">p90 {ms(m.latency.p90_ms)}</div></div>
               </div>
               <div className="mt-2 text-xs text-muted">{m.latency.n} questions · {m.latency.models.map((x) => `${x.model} ×${x.n}`).join(", ")}</div>
+              {battery && <div className="mt-3 rounded-xl bg-surface-2 p-3 text-xs"><b>Agent battery:</b> {battery.passed}/{battery.total} questions correct (numbers re-checked against SQL) · agent cost p50 {fmtInr(battery.cost_p50_inr)} without the voice reply</div>}
             </Card>
           </div>
           <div className="grid gap-4 lg:grid-cols-2">

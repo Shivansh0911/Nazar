@@ -25,7 +25,7 @@ CLS_EN = {"person": "Someone", "any_bag": "A bag", "backpack": "A bag", "handbag
 
 def _zone_label(camera_id: str, zone: str) -> str:
     if zone == "anywhere":
-        return "camera"
+        return (db.fetch_one("SELECT name FROM cameras WHERE id=%s", (camera_id,)) or {}).get("name") or "camera"
     row = db.fetch_one("SELECT zones FROM cameras WHERE id=%s", (camera_id,))
     for z in (row or {}).get("zones") or []:
         if z.get("name") == zone:
@@ -36,6 +36,9 @@ def _zone_label(camera_id: str, zone: str) -> str:
 def message_for(spec: RuleSpec, hit: Hit, language: str, zone_label: str) -> str:
     when = fmt_local(hit.t, "hi" if language == "hi" else ("hinglish" if language == "hinglish" else "en"))
     trig = spec.trigger
+    if spec.cls.startswith("custom:") and language in ("hi", "hinglish"):
+        name = spec.cls.split(":", 1)[1].replace("_", " ")
+        return f"{zone_label} pe {name} dikha — {when}"
     if language == "hi":
         who = CLS_HI.get(spec.cls, spec.cls)
         if trig == "object_removed":
@@ -57,10 +60,13 @@ def message_for(spec: RuleSpec, hit: Hit, language: str, zone_label: str) -> str
         if trig == "dwell_over":
             return f"{zone_label} pe koi {spec.dwell_s} second se zyada ruka — {when}"
         return f"{zone_label} pe {hit.extra.get('n', (spec.count or 0) + 1)} log hain — {when}"
-    who = CLS_EN.get(spec.cls, spec.cls)
+    custom = spec.cls.startswith("custom:")
+    who = ("A " + spec.cls.split(":", 1)[1].replace("_", " ")) if custom else CLS_EN.get(spec.cls, spec.cls)
     if trig == "object_removed":
         return f"{who} was taken from {zone_label} at {when}"
     if trig == "zone_enter":
+        if custom and spec.zone == "anywhere":
+            return f"{who} is on {zone_label} - seen at {when}"
         return f"{who} entered {zone_label} at {when}"
     if trig == "zone_exit":
         return f"{who} left {zone_label} at {when}"

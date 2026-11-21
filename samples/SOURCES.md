@@ -28,3 +28,6 @@ Selection check (done on 2026-11-21): every clip was probed with ffprobe and thr
 `data/inspect/` and reviewed — fixed camera (no pan/drone), people at small-to-medium size, correct orientation.
 Rejected candidates: drone/aerial parking clips and a handheld Indian street clip (camera moves). CAVIAR's
 bag clips were the first choice for clip6 but their top-down bag is never detected, so ABODA replaced them.
+
+## v2: Builders venue clip
+- `samples/hackathon.mp4` (camera **Builders venue**): a 5.5-minute clip recorded at the Builders 2026 hackathon venue on 21 Nov 2026 and provided by the author. Not committed (real people). Every frame Nazar serves from it is face-blurred (crops, keyframes, clips, PDFs).

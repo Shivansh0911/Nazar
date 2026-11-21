@@ -1,7 +1,8 @@
 # Nazar — ask your CCTV anything, in your own language.
 
-**Send a voice note in Hindi, English or Hinglish to your shop's CCTV. Get back a spoken answer, a count, and the
-exact clips, each with an honest evidence level. Teach it what to watch for, and it alerts you by voice.**
+**Nazar turns any CCTV — or any video you have — into a security analyst you can talk to, in Hindi, English or
+Hinglish. Search footage by words or by photo, get counts with receipts, teach it what to watch, and get a
+police-ready incident report in one tap. Indexing footage costs ₹0 in AI — you only pay when you ask.**
 
 ![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Next.js 15](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs)
@@ -10,243 +11,243 @@ exact clips, each with an honest evidence level. Teach it what to watch for, and
 ![License: MIT](https://img.shields.io/badge/License-MIT-green)
 
 <p align="center">
-  <img src="docs/screenshots/cameras_desktop.png" alt="Nazar cameras" width="68%">
-  <img src="docs/screenshots/chat_empty_mobile.png" alt="Nazar chat on a phone" width="24%">
+  <img src="docs/screenshots/v2/ask-answer-1440-dark.png" alt="Ask: a Hinglish question, a Confirmed count with its receipt" width="70%">
+  <img src="docs/screenshots/v2/today-390-dark.png" alt="Today on a phone" width="22%">
 </p>
 
-> Built solo for Builders 2026 (OpenAI × Equal AI, Hyderabad), Build Creative track.
+> Built solo for Builders 2026 (OpenAI × Equal AI), Build Creative track. v1 was built in the first night; v2 (this
+> README) in the second. Every number below comes from a script run on 22 Nov 2026 on one laptop (RTX 4050, 8 GB RAM).
 
 ## The problem
-India's shops, homes, clinics and housing societies already paid for CCTV — usually a cheap DVR that records
-24×7 and that nobody watches. When something happens, the owner scrubs hours of footage on a tiny DVR screen.
-The cameras see everything; the owner can ask nothing.
+India's shops, homes, offices and housing societies already paid for CCTV — usually a DVR that records 24×7 and
+that nobody watches. When something happens, someone scrubs hours of footage on a tiny screen. The cameras see
+everything; the owner can ask nothing. Police reviewing footage (a lost child at a mela, a chain-snatching) face
+the same wall of video.
 
-## What Nazar does
-| | Example (Hinglish) | What comes back |
+## Show it · Say it · Find it — the three pillars
+| | Try | What comes back |
 |---|---|---|
-| **Ask** | "Kal raat 10 baje ke baad shop counter pe kitne log aaye?" | A spoken + written reply, a **Confirmed** count from SQL with an hourly chart, and the clips |
-| **Teach** | "Jab bhi koi desk 14 se bag uthaye, mujhe batana" | A readable rule, **replayed on last night first** ("would have fired 1 time", with the clip), then one tap to activate |
-| **Alert** | (a person picks up the bag on desk 14) | A red alert bubble with a face-blurred snapshot and a voice note, ~4 s after it happens |
-| **Find again** | tap *Find again* on any person | Same-looking people ±24 h from a 76-number appearance fingerprint — no face recognition |
+| **1. Search like Google Photos** | "person carrying a bag", "laptop on a desk" — or a **photo** of a bag/jacket/vehicle | every similar moment across all cameras, ranked, playable; AI checks the top hits; a cross-camera **journey** (clothes/objects only — never faces) |
+| **2. Teach it anything, no training** | "Builders venue pe laptop pe nazar rakho", "Jab bhi koi desk 14 se bag uthaye, mujhe batana" | open-vocabulary detection (YOLOE) starts on that camera; the rule is **replayed on yesterday first**, then watches live and alerts by voice note — in the app and on **Telegram** |
+| **3. Proof, not claims** | "Kal raat 10 baje ke baad counter pe kitne log aaye?" | a **Confirmed** count from SQL with every counted person as a playable **receipt**, a **proof reel**, "how this was computed" for any analysis, and a **FIR-ready PDF** with SHA-256 hashes |
 
-On the demo data: the object-removed rule on *Office desk* replays to exactly one hit (21:51, with the person who took
-the bag as the actor), and when the same clip plays as a live camera the alert arrives as a red bubble with a
-Hinglish voice note. A 3-minute recorded walkthrough: `scripts/demo_video.mjs` (see *Demo video* below).
-
-## Demo in 60 seconds
-```powershell
-docker compose -f infra/docker-compose.yml up -d                        # Postgres (pgvector) + MediaMTX
-python -m venv .venv; .\.venv\Scripts\Activate.ps1
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121; pip install -e backend
-python scripts/fetch_samples.py; python scripts/download_models.py; python scripts/demo_setup.py
-powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1           # worker + API + web -> http://localhost:3000
-```
-`demo_setup.py` stamps six downloaded clips as last night's footage and prints questions with real answers:
-1. Kal raat 10 baje ke baad shop counter pe kitne log aaye?
-2. How many people came to the shop counter between 6 and 8 pm yesterday?
-3. Desk 14 se bag kisne uthaya?
-4. Jab bhi koi desk 14 se bag uthaye, mujhe batana
-5. Raat 11 baje ke baad main road pe kitni bikes guzri?
-6. Aaj subah lobby mein sabse zyada bheed kab thi?
-7. रात 2 बजे के बाद night stall पर कितने लोग आए?
-8. Show me people carrying a bag on the market street this morning
+Plus security analytics out of the box — loitering, abandoned bag, object taken, running, fall, crowding,
+after-hours presence, possible snatch — each a *Candidate* until a short AI check of blurred frames agrees.
 
 ## Demo video
-`scripts/demo_video.mjs` records the real app end to end (captions on screen): cameras → zones → teach a rule by
-text, replay, activate → bag clip playing as a live camera → Hinglish count → Hindi voice note → bag search with
-evidence levels → clip player with the tracked box → find again → **live alert** → cost page. Run it with
-`cd web; node ../scripts/demo_video.mjs --channel chrome --wav ..\demo\q_hi.wav` (writes `demo/nazar_demo.webm`).
+`demo/nazar_v2.mp4` (recorded from the real app in Chrome with `scripts/demo_video_v2.mjs`, waits sped up 8×):
+upload the Builders-venue clip → live analysis view → Hinglish count with receipts + proof reel → "any analysis"
+with its SQL → search by words with AI verification → journey → search by photo → teach "laptop" → bag rule replays
+→ the bag clip plays as a live camera → **live alert** with snapshot + voice note → incident PDF → Insights.
+
+## Run it (Windows, PowerShell)
+```powershell
+docker compose -f infra/docker-compose.yml up -d                        # Postgres 16 + pgvector (port 5433) + MediaMTX
+python -m venv .venv; .\.venv\Scripts\Activate.ps1
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121; pip install -e backend
+python scripts/fetch_samples.py; python scripts/download_models.py     # demo clips + YOLO/YuNet weights
+python scripts/demo_setup.py                                           # 8 demo cameras incl. samples/hackathon.mp4
+powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1           # vision, worker, API, web (+ Telegram bot)
+```
+Open http://localhost:3000 (passcode from `DEMO_PASSCODE`). Checks: `python scripts/check_env.py`,
+`python scripts/check_models.py`, `powershell -File scripts\smoke.ps1` (must print `SMOKE: PASS`).
 
 ## How it works
 ```mermaid
 flowchart LR
-  cam["Camera<br/>file · RTSP DVR · phone (SRT/RTMP→MediaMTX)"] --> edge
-  subgraph edge["Edge (one process per camera)"]
+  src["file · upload · RTSP DVR · phone (SRT/RTMP→MediaMTX)"] --> edge
+  subgraph edge["Edge (one per camera)"]
     direction TB
-    e1["5 fps sample + motion gate"] --> e2["YOLO11n + ByteTrack"] --> e3["5 Hz paths · face blur<br/>crops · 76-d fingerprint<br/>10 s segments · snapshot"]
+    e1["files: ffmpeg samples 5 fps (no re-encode)<br/>live: decode + YOLOE for taught objects"] --> e2["YOLO11s on GPU tensors, batches of 32<br/>ByteTrack in frame order"] --> e3["5 Hz paths + head boxes · crops blurred at cut<br/>keyframe every 2 s (blurred) · live analysis view"]
   end
-  edge --> pg[("Postgres + pgvector<br/>tracks · events · segments")]
+  edge --> pg[("Postgres + pgvector<br/>tracks · events · keyframes · originals")]
+  pg <--> vis["Vision service<br/>SigLIP 2 (local GPU) indexes<br/>crops + keyframes — ₹0"]
   pg --> worker
   subgraph worker["Worker"]
     direction TB
-    w1["eventizer: paths → zone events"] --> w2["rules: live evaluation → alerts"]
-    w3["stitcher: merge broken tracks"]
-    w4["enricher: 1–3 crops → caption + attributes → embedding"]:::ai
+    w1["eventizer: zones + count lines"] --> w2["rules → alerts (voice note)"]
+    w3["stitcher"]
+    w4["security detectors → AI check (Flex)"]:::ai
+    w5["digest · on-demand captions (Flex)"]:::ai
   end
   worker --> pg
-  pg <--> api["FastAPI<br/>agent tools · clips · WS"]
-  api <--> web["Next.js PWA<br/>chat · voice notes · zones"]
-  api -. "transcribe · agent · TTS · rule compiler" .-> oai(("OpenAI")):::ai
-  w4 -.-> oai
+  pg <--> api["FastAPI<br/>agent (SSE) · clips blurred at egress · reports (PDF)"]
+  api <--> web["Next.js PWA<br/>Today · Ask · Search · Live · Alerts · Reports · Insights"]
+  api <--> tg["Telegram bot"]
+  api -. "agent (luna → sol) · transcribe · TTS · verify" .-> oai(("OpenAI")):::ai
   classDef ai fill:#efe7ff,stroke:#7c3aed
 ```
 
-**Trajectories are the truth.** The edge stores each object's path (normalized boxes, 5 Hz), not "events". One
-function — `nazar/core/eventizer.py`, with hysteresis so boundary jitter never flaps — turns paths into
-enter/exit/dwell events. Redraw a zone and the worker re-derives a week of events; replay a rule and it runs the
-same evaluator the live engine uses.
+- **Trajectories are the truth.** The edge stores every object's path (normalized boxes at 5 Hz, with a head box
+  for people). One eventizer derives zone enter/exit/dwell and count-line in/out events; replay and live rules run
+  the same evaluator.
+- **Counts come from SQL, and every count shows its receipts.** "People seen" = root tracks ≥ 1.5 s with max
+  confidence ≥ 0.6 (filters ID fragments and flicker). Tap a chart bar to see who was counted in that hour; mark a
+  receipt wrong and the card shows "17 by AI · 16 after your review" (stored for evaluation).
+- **Any analysis, safely.** The agent can write one SELECT over whitelisted views (`v_tracks`, `v_events`,
+  `v_crossings`, `v_hourly`, …). The server validates it with sqlglot and runs it as a read-only role with a 5 s
+  timeout; the SQL is shown under "how this was computed".
+- **Local visual index.** A SigLIP 2 model indexes every track crop and a scene keyframe every 2 s — no AI call.
+  Questions about things that were never tracked ("was the shutter open?", "laptop on a desk") search keyframes.
+- **Cheap model first.** `gpt-6-luna` answers; it escalates to `gpt-6-sol` when unsure or when a tool fails. Answers
+  stream token by token over SSE; the voice reply is synthesized as soon as the text is complete.
 
-**Evidence levels** (assigned only by `nazar/core/levels.py`; the model never sets or upgrades one):
-
+### Evidence levels (decided only by server code — the model can never set or upgrade one)
 | Level | Rule | Looks like |
 |---|---|---|
-| **Confirmed** | A tracker fact: a count from SQL, an entry into a zone, a timestamp | solid green pill, filled dot |
-| **Probable** | All requested attributes match the vision caption (colours, carrying, vehicle) **and** semantic similarity ≥ 0.35 — or similarity ≥ 0.45 with no attributes asked | amber pill, half-filled dot |
-| **Candidate** | Similarity ≥ 0.25 or some attribute matches | grey **dashed** outline, hollow dot, "check this", never placed above the others |
+| **Confirmed** | a tracker/database fact: a SQL count, a zone entry, a line crossing, a timestamp, an analytics row | solid green pill |
+| **Probable** | local similarity **and** an independent check agree: matching attributes, or a **recorded** AI verification "yes" of the blurred image | amber pill, half-filled dot, "AI-verified" |
+| **Candidate** | similarity or a heuristic only | grey dashed outline, "check this", never ranked above the others |
 
-If nothing matches, Nazar says so and lists the hours the camera had no footage.
+### Privacy
+- **No face recognition, ever.** Photo search compares clothes, bags and vehicles on face-blurred images; a
+  face-only photo is refused; every photo search is written to an audit log with its purpose.
+- **Blur at egress:** the original video stays on the owner's machine (like a DVR) and is never served. Everything
+  that leaves the pipeline — crops, keyframes, clips, live view, snapshots, PDFs, Telegram media — is blurred with
+  the stored head boxes plus a YuNet face pass on every image.
+- OpenAI only sees blurred crops/keyframes at `detail: low` and the owner's questions. Media retention: 7 days.
 
-**Replay before you trust a rule.** A rule compiled from the owner's words is validated against the camera's zones,
-replayed over the last 24 h (or the footage window), shown with its hits, and stays inactive until the owner taps
-Activate. Live alerts only fire for events after activation.
+## Measured results (22 Nov 2026, one laptop: i5-13420H, RTX 4050 6 GB, 8 GB RAM)
+**Speed** — `python scripts/bench_pipeline.py` on a 30-minute 1280×720 file built from the demo clips:
 
-**Cost by design.** Computer vision watches every frame for free on the edge; OpenAI only sees 1–3 face-blurred crops
-per tracked object (detail `low`) plus the owner's questions. The Metrics page computes ₹ per camera-day from the
-real `usage` rows and compares it with a naive "one frame per second to a vision model" baseline using the same
-measured price per image. Numbers: see *Measured results*.
+| Pipeline | Footage | Wall | × real time |
+|---|---|---|---|
+| v1: OpenCV decode every frame + per-frame YOLO11n + segment re-encode (60 s sample) | 60 s | 46 s | **1.3×** |
+| v2: ffmpeg 5 fps sampling + YOLO11s on GPU tensors (batch 32) + ordered ByteTrack, no re-encode | 1800 s | 203 s | **8.9×** |
+| v2 on the Builders-venue clip (848×478, 5.5 min) | 330 s | 18.6 s | **17.7×** |
 
-**Privacy by design.** Faces are blurred (YuNet, with a head-band fallback for every person box) before any crop,
-segment, snapshot, clip or live frame is written. No face recognition, ever — "find again" uses clothing colour and
-edge statistics. The vision prompt forbids identity, ethnicity, religion, caste and age guesses. Media is deleted
-after 7 days (`worker/retention.py`, plus an S3 lifecycle rule in production).
+Timestamp drift at the end of the 30-minute file: 0.13 s. The 30-minute test is rush-hour street/mall footage with
+2,636 tracks; there the CPU side (tracker + Python) is the bottleneck, so it misses the 15× goal. Model choice:
+yolo11n/26n/11s/26s all ran ~80 fps through the ultralytics predictor (CPU-bound); with GPU-side letterboxing yolo11s
+reached 100–145 fps and finds more objects, so it is the default.
+
+**Answers** — `python scripts/eval_battery.py`: 27 questions (counts, analysis, compare, peak, visual search, photo,
+security, heatmap, look-now, rule, report, face-search refusal, a vague "kitne?") in Hindi, Hinglish and English:
+
+| Result | First words p50 / p90 | Full answer p50 / p90 | Agent cost p50 / p90 |
+|---|---|---|---|
+| **27 / 27 correct**; every Confirmed number re-computed from SQL and equal | 7.0 s / 10.3 s | 8.8 s / 12.2 s | ₹0.03 / ₹0.05 |
+
+26 of 27 answered by `gpt-6-luna`; one escalated to `gpt-6-sol` (₹1.00). The 2.5 s / 5 s latency targets are **not
+met**: an answer takes 2–3 model rounds; status lines ("Counting from the tracker…") appear while tools run.
+
+**Unit costs** — from the `usage` table (Insights page), 62 questions:
+
+| | ₹ |
+|---|---|
+| AI cost to index footage (detection, tracking, counting, SigLIP 2 index) | **0** |
+| One question, p50 / p90, **including the spoken voice reply** | 0.31 / 0.58 (the agent part alone: 0.03) |
+| One AI verification call (6–8 images, detail low) | 0.013 (₹0.002 per image) |
+| One incident report (AI description + PDF) | 0.016 |
+| One on-demand description of a track | 0.005 |
+
+A shop with 500 visitors a day asking 20 questions and getting 3 alerts ≈ **₹6.4 per day** (the Insights page has the
+calculator; v1 captioned every track and cost ₹351 per camera-day on busy footage).
+
+**Counting accuracy** — `python scripts/eval_counts.py` against hand counts I made by looking at frames
+(`scripts/eval/ground_truth.yaml`):
+
+| Window | Hand count | Nazar | Why it differs |
+|---|---|---|---|
+| Office desk (ABODA bag clip) | 2 | 2 | — |
+| Shop counter (veg stall), people on foot | 3 | 4 | a motorcycle rider is counted as a person |
+| Builders venue, first 60 s | 3 | 5 | a person half-hidden behind a chair is re-detected 2× at low confidence |
+
+BoT-SORT (no ReID) gave the same counts as ByteTrack on these windows, so ByteTrack stays.
+
+**Languages** — `python scripts/eval_languages.py` (TTS → transcription round trip): **Hindi, English, Tamil,
+Telugu, Bengali, Gujarati, Kannada pass**. Hinglish comes back in Devanagari (same words), Marathi came back in
+Gurmukhi script → we do not claim Marathi.
+
+**Live** — `python scripts/live_alert_test.py`: the bag clip playing as a live camera fires the object-removed rule
+**3.0 s** after the pickup, with snapshot + voice note; `--teach`: a laptop taught by name is detected live by YOLOE
+and its rule fires 4.6 s after it appears. Security events on the demo data: the bag pickup on ABODA is flagged
+*object taken* and AI-verified to **Probable**; the abandoned-bag heuristic fires but stays a *Candidate* (the AI saw
+a person next to the bag).
+
+**Memory** (W1.9): vision service 2.8 GB private while SigLIP 2 is loaded (released after 3 idle minutes), one edge
+0.5–1.6 GB, API 0.4 GB, worker 0.45 GB, Postgres 0.1 GB. With Docker, VS Code and a browser this 8 GB laptop had
+~0.6 GB free — under the 1 GB goal; 16 GB is comfortable.
 
 ## Where OpenAI is used
-| Model (from `.env`) | Job | When | Cost share |
-|---|---|---|---|
-| `OPENAI_VISION_MODEL` (gpt-6-luna; falls back to `OPENAI_VISION_FALLBACK`) | Track caption + structured attributes (`TrackCaption`) | once per finished track ≥ 1 s, 1–3 crops | — (`python scripts/cost_report.py`) |
-| `OPENAI_EMBED_MODEL` (text-embedding-3-small) | Caption embeddings; query embedding for search | batched after captions; per described question | — |
-| `OPENAI_AGENT_MODEL` (gpt-6-sol) | Query agent (function tools), rule compiler, zone suggestions, vision confirm | per question / rule / button | — |
-| `OPENAI_TRANSCRIBE_MODEL` (gpt-4o-transcribe) | Voice-note transcription with a zone-aware prompt | per voice note | — |
-| `OPENAI_TTS_MODEL` (gpt-4o-mini-tts) | Spoken replies and alert voice notes | per answer / alert | — |
+| Model (env) | Job | When |
+|---|---|---|
+| `OPENAI_AGENT_FAST_MODEL` (gpt-6-luna) | query agent with 15 strict tools, SSE streaming | every question |
+| `OPENAI_AGENT_MODEL` (gpt-6-sol) | escalation, rule compiler, zone suggestions | hard questions, rules |
+| `OPENAI_VISION_MODEL` (gpt-6-luna) | verify search hits, describe a clip, look now, security checks (Flex), on-demand captions (Flex) | on demand only |
+| `OPENAI_TRANSCRIBE_MODEL` (gpt-4o-transcribe) | voice notes (web + Telegram) | per voice note |
+| `OPENAI_TTS_MODEL` (gpt-4o-mini-tts) | spoken replies, alert voice notes, digest | per answer / alert |
+| `OPENAI_EMBED_MODEL` (text-embedding-3-small) | caption embeddings (only for described tracks) | on demand |
 
-Every call writes a `usage` row (tokens, images, audio seconds, cost). Model names are only read from the env.
+Every call writes a `usage` row with tokens, images, audio seconds, cost and the **service tier actually served**
+(Flex is priced at ~50 %). Model names are read only from the environment.
 
 ## Where AWS is used
 | Service | Role |
 |---|---|
-| **EC2** (one c7i.xlarge, CPU only) | MediaMTX ingest, API + edge manager, worker, Caddy HTTPS |
-| **RDS PostgreSQL 16 + pgvector** | tracks, events, rules, alerts, usage, vectors |
-| **S3** (7-day lifecycle) | crops, clips, TTS voice notes, alert snapshots (presigned URLs) |
+| **EC2** (one c7i.xlarge, CPU only) | MediaMTX ingest, API + edge manager, worker, vision service (CPU), Telegram bot, Caddy HTTPS |
+| **RDS PostgreSQL 16 + pgvector** | tracks, events, keyframes (halfvec + HNSW), rules, alerts, usage |
+| **S3** (7-day lifecycle) | crops, clips, keyframes, TTS voice notes, reports |
 | **Amplify Hosting** | the static web app |
-| **IAM instance role** | S3 access without keys on the server |
 
-Guardrails: no GPU instances, no Bedrock, exactly one instance, budget alert. Click-by-click: [infra/DEPLOY.md](infra/DEPLOY.md).
+No GPU instances, no Bedrock, one instance. Click-by-click: [infra/DEPLOY.md](infra/DEPLOY.md).
 
-## Measured results
-Measured on 2026-11-21 with the real models (gpt-6-luna captions, gpt-6-sol agent), on the demo data (6 cameras,
-~0.2 h of busy footage, ~650 tracks, 340 described), on the dev laptop (RTX 4050 Laptop 6 GB, i5-13420H, 8 GB RAM).
+## Connect cameras
+- **Upload any video:** Add camera → Upload — several files at once, up to 4 GB / 3 h each, resumable 8 MB parts,
+  no re-encode, live analysis view while it runs; ask from the first minute.
+- **CCTV / DVR:** Add camera → CCTV / DVR — presets for Hikvision (`/Streaming/Channels/101|102`), Dahua and CP Plus
+  (`/cam/realmonitor?channel=1&subtype=0|1`) or any URL; **Test connection** (8 s) shows codec, size, fps and a
+  blurred thumbnail or a precise error (auth failed / unreachable / wrong path). Passwords are Fernet-encrypted.
+- **Many cameras:** Add camera → Excel import — download the `.xlsx`/`.csv` template, fill it, upload; every row is
+  probed (4 at a time) and "Add all working" adds the reachable ones. "Scan network" lists ONVIF cameras.
+- **Phone:** Add camera → Phone — Larix Broadcaster with a QR code (SRT/RTMP into MediaMTX).
+- **Telegram:** Settings → Get pairing code → send `/pair <code>` to the bot. Ask by text or voice note, send a photo
+  to search, receive alerts with snapshot, clip and voice note, and the 8:00 digest.
 
-| Metric | Value | Source |
-|---|---|---|
-| Detection fps, laptop GPU (YOLO11n fp16, 1280×720, imgsz 640) | **24.6 fps** (19.6 fps for a 720×480 source upscaled ×2 at imgsz 960) | edge `EDGE_SUMMARY` |
-| Whole edge pipeline speed on files | **1.2–1.6× real time** (crowded street 1.27×) | edge `EDGE_SUMMARY` |
-| Detection fps, EC2 CPU (OpenVINO) | — | run the edge on EC2 after `download_models.py --export-cpu` |
-| Count accuracy | **80 %** (1 window: 6 tracked vs 5 people counted by hand; one ID switch) | `scripts/eval_counts.py` |
-| Live alert latency (RTSP → WebSocket) | **3.3–4.2 s** (3 alerts) | M7 live test |
-| End-to-end question battery (10 text Hinglish/Hindi/English + 2 Hindi voice notes) | **12/12 pass**: reply in the asker's language/script, counts = SQL series, Candidates never above Probables, voice reply delivered | test battery + `scripts/smoke.ps1` PASS |
-| Ask latency p50 / p90 (text answer) | **9.5 s / 13.0 s** over 46 questions (best 5.2 s); the voice reply follows 2–3 s later | Metrics page |
-| Cost per question | **₹0.25–0.85** typical (₹2.1 for a multi-search question) | `queries.cost_usd` |
-| Cost to describe one tracked person/vehicle | **₹0.010** ($0.00011, 1–3 crops, gpt-6-luna) | `python scripts/cost_report.py` |
-| ₹ per camera-day / naive / ratio | **₹351 / ₹449 / ~1.3×** on this rush-hour-dense demo footage (~1,500 described objects per hour) — see note | `python scripts/cost_report.py` |
-| Search hit@3 / confidently-wrong rate | — (fill truth windows in `scripts/eval/questions.yaml`) | `python scripts/eval_search.py` |
+## Honest limitations
+- **Latency** is 7–9 s per answer (p50), above the 5 s goal; first words also arrive late because the text streams only
+  in the final model round.
+- **Dense scenes:** 8.9× real time (not 15×) on rush-hour footage; counts there are an upper bound (riders count as
+  people, partly hidden people are re-detected).
+- **Not done in v2:** WebRTC low-latency live view (the live wall uses the face-blurred MJPEG with tracker boxes
+  drawn in), the realtime "Call Nazar" voice mode, photo prompts for YOLOE (text prompts work), MOT17/snatch-dataset
+  evaluation (multi-GB downloads), ANPR.
+- **Heuristic security events** (running, fall, snatch, loitering) are Candidates until verified; they were checked
+  on the demo clips, not on a labelled dataset.
+- **Night/IR footage, tiny objects and top-down fisheye views** are weak spots of the detector.
+- **The bag-pickup demo clip is constructed** (its second half is the same footage reversed).
+- **8 GB RAM** is tight with the vision service loaded.
 
-**Cost, honestly.** Nazar's AI cost follows *activity*, not time: ₹0.01 per person or parked vehicle it describes
-(passing traffic seen < 5 s is not described). The demo clips are rush-hour streets and malls, so extrapolating them
-to 24 h gives ₹351/day — barely below a naive "one image per second" design (₹449/day, priced at the same small
-crop; real full frames would cost more, and Nazar never sends full frames). For a shop with ~500 visitors a day the
-same numbers give ≈ ₹5/day. Questions cost ₹0.25–0.85 each.
-
-## Connect a real camera
-- **Phone:** Cameras → Add camera → **Phone** shows a QR and the exact Larix Broadcaster URL
-  (`srt://<host>:8890?streamid=publish:<id>` or `rtmp://<host>/<id>`); press *Create & start*.
-- **CCTV DVR / NVR (RTSP):** Cameras → Add → **CCTV / RTSP**. Typical URLs (use the sub-stream):
-  Hikvision `rtsp://user:pass@192.168.1.64:554/Streaming/Channels/102`,
-  CP Plus / Dahua `rtsp://user:pass@192.168.1.108:554/cam/realmonitor?channel=1&subtype=1`.
-- **A video file:** Cameras → Add → **Upload** (any phone/DVR export up to 60 min / 2 GB; 4K and portrait are
-  normalized on ingest), then "Ready — ask about it".
-- No camera at hand? `scripts\live_from_file.ps1 samples\clip2.mp4 cam1` streams a clip into MediaMTX over RTSP.
-
-## Run it yourself
-Prerequisites: Windows/Linux, Python 3.12, Node 20, Docker, ffmpeg, an NVIDIA GPU optional (CPU works, slower).
-
-| Variable | Purpose | Default | Secret |
-|---|---|---|---|
-| `OPENAI_API_KEY` | all AI features (503 with a clear message when empty) | — | yes |
-| `OPENAI_VISION_MODEL` / `_FALLBACK` / `_AGENT_MODEL` / `_EMBED_MODEL` / `_TRANSCRIBE_MODEL` / `_TTS_MODEL` | model names | gpt-6-luna / gpt-5.4-mini / gpt-6-sol / text-embedding-3-small / gpt-4o-transcribe / gpt-4o-mini-tts | no |
-| `DATABASE_URL` | Postgres | `postgresql://nazar:nazar@localhost:5433/nazar` | no (yes in prod) |
-| `STORAGE_MODE`, `S3_BUCKET`, `AWS_REGION` | local disk or S3 | `local`, —, `us-west-2` | no |
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN` | laptop-only S3 access (EC2 uses a role) | — | yes |
-| `API_BASE_URL`, `WEB_ORIGINS`, `PUBLIC_HOST` | URLs, CORS, host phones stream to | localhost | no |
-| `DEMO_PASSCODE` | the single demo passcode | `nazar2026` | yes in prod |
-| `DATA_DIR` | media directory | `<repo>/data` | no |
-| `DETECT_FPS`, `DETECT_IMGSZ`, `DETECT_CONF`, `SEGMENT_*`, `TRACK_END_S`, `MOTION_THRESH` | edge tuning | 5, 640, 0.30, 10 fps/10 s/854 px, 2.0, 0.002 | no |
-| `ENRICH_DAILY_USD_CAP`, `RETENTION_DAYS`, `MAX_EDGES`, `LEVEL_*_SIM`, `USD_INR`, `PRICES_JSON` | cost/safety knobs | 5.0, 7, 2, 0.35/0.25, 88, — | no |
-
-Full local setup: the five commands above, then `python scripts/check_env.py` and `python scripts/check_models.py`.
-Services individually: `python -m nazar.worker.run`, `uvicorn nazar.api.main:app --port 8000` (from `backend/`),
-`cd web; npm run dev`. Deploy summary: one EC2 + RDS + S3 + Amplify — see [infra/DEPLOY.md](infra/DEPLOY.md).
-
-## API reference
-| Method & path | Purpose |
-|---|---|
-| `POST /api/auth` | passcode → token (send as `X-Nazar-Token` or `?token=`) |
-| `GET /api/health` | db, key, camera status |
-| `GET/POST /api/cameras`, `GET/PATCH/DELETE /api/cameras/{id}` | cameras and zones |
-| `POST /api/cameras/upload`, `GET /api/cameras/{id}/progress` | upload any video and follow processing |
-| `POST /api/cameras/{id}/start`, `/stop`, `GET /edge` | edge manager |
-| `GET /api/cameras/{id}/snapshot.jpg`, `/live.mjpg` | blurred live view |
-| `POST /api/cameras/{id}/suggest-zones` | AI zone suggestions |
-| `GET /api/cameras/{id}/timeline`, `/gaps`, `/tracks` | hourly series, offline periods, recent tracks |
-| `POST /api/ask` | text JSON or multipart `audio` → `AskResponse` |
-| `GET /api/search`, `GET /api/count` | the agent's tools, for debugging |
-| `GET /api/tracks/{id}`, `/similar` | track details, find again |
-| `GET /api/clips/track/{id}`, `/api/clips/range` | clip + path for the canvas overlay |
-| `POST /api/rules/compile`, `GET /api/rules`, `POST /api/rules/{id}/activate|deactivate`, `DELETE` | watch rules |
-| `GET /api/alerts`, `POST /api/alerts/{id}/ack` | alerts |
-| `WS /api/ws` | live alerts + camera status |
-| `GET /api/metrics` | cost per camera-day, latency, levels |
+## Roadmap
+- A camera agent inside Equal's AI messenger (the Telegram bot is the prototype).
+- An on-site box beside the DVR so video never leaves the premises.
+- ANPR for vehicles, multi-site dashboards, Indian-class fine-tunes (auto-rickshaw, e-rickshaw).
 
 ## Project structure
 ```
-backend/nazar/core     shared: config, db, eventizer, rules, levels, appearance, OpenAI client, storage
-backend/nazar/edge     per-camera process: source, detector, tracker state, face blur, crops, segments
-backend/nazar/worker   eventize, rules, alerts, stitcher, enricher, retention
-backend/nazar/api      FastAPI routes, agent + tools, voice, clips, WebSocket, edge manager
-backend/tests          unit tests (fake OpenAI client) + API smoke tests
-web/                   Next.js static PWA
+backend/nazar/core     config, db, eventizer (zones + count lines), rules, levels, OpenAI client, storage, secrets
+backend/nazar/edge     per-camera process: ffmpeg file path, detector (GPU tensors + tracker), crops, face blur
+backend/nazar/vision   SigLIP 2 service + background indexer (crops, keyframes)
+backend/nazar/worker   eventize, rules, alerts, stitcher, security detectors + digest, enricher, retention
+backend/nazar/api      FastAPI: agent + tools, analytics (read-only SQL), visual search, clips/reels, reports,
+                       uploads, onboarding (RTSP builder, Excel), teach (YOLOE), Telegram pairing
+backend/nazar/telegram Telegram bot (long polling)
+web/                   Next.js static PWA (dark-first design, Recharts, framer-motion)
 infra/                 docker compose (dev/prod), MediaMTX, Caddy, Dockerfile, DEPLOY.md
-scripts/               setup, demo data, live stand-ins, eval, cost report, smoke, screenshots
-samples/               clip sources + demo manifest (videos are downloaded, not committed)
+scripts/               setup, demo data, benchmarks, evaluations, smoke, screenshots, demo video
 ```
 
-## Honest limitations
-- **Crowds and occlusion:** busy street/lobby scenes produce more tracks than people (ID switches); the stitcher
-  merges some, counts are still an upper bound there. Measured count accuracy so far is from one short window.
-- **Night / IR footage:** low light lowers detection confidence; the night clip is lit, real IR footage is untested.
-- **Low-res and top-down views:** a 20-px bag from a ceiling fisheye (CAVIAR) is never detected — we switched the
-  bag demo to a corner camera (ABODA) and document the miss in `samples/SOURCES.md`.
-- **The bag-pickup demo clip is constructed:** its second half is the same footage played backwards.
-- **Attribute errors:** colours and "carrying" come from a vision model on small crops; that is why they only ever
-  reach *Probable*, and a pure similarity match stays a *Candidate*.
-- **Laptop limits:** on 8 GB RAM two edges at once compete with everything else; the edge needs ~30 s to load.
-- **Answer latency** is 7–13 s (two agent rounds + tools), above the 6 s goal; the voice reply streams in after the text.
-- **Cost on busy scenes:** on rush-hour footage the per-camera-day cost is close to a naive per-second design (see
-  *Measured results*); the saving comes from quiet hours and from never sending full frames.
-
-## Roadmap
-- **A Camera Agent inside Equal's AI messenger:** ask over chat or voice note, alerts arrive as messages or calls.
-- **An on-site box beside the DVR** so video never leaves the premises; only crops and questions go out.
-- **Multi-camera journeys** (SETU-style appearance search across cameras), then homes, housing societies, clinics.
-
 ## Built on / credits
-**Lineage:** the author previously built SETU — vehicle search across 80,000 police cameras without readable number
-plates (edge detection, appearance fingerprints, pgvector, evidence tiers, "replay first"). Nazar is the same
-discipline shrunk to one shop camera.
+**Lineage:** the author previously built SETU — vehicle search across police cameras without readable number plates
+(edge detection, appearance fingerprints, pgvector, evidence tiers, "replay first"). Nazar applies the same discipline
+to shops and homes.
 
-Open source: Ultralytics YOLO11 + ByteTrack, OpenCV (YuNet face detector), FastAPI, psycopg + pgvector, PostgreSQL,
-MediaMTX, ffmpeg, Next.js, Tailwind CSS, lucide icons, qrcode, Caddy.
+Open source: Ultralytics YOLO11 / YOLOE + ByteTrack, Google SigLIP 2 (Hugging Face transformers), OpenCV (YuNet),
+FastAPI, psycopg + pgvector, PostgreSQL, sqlglot, MediaMTX, ffmpeg, Playwright (PDF), python-telegram-bot, Next.js,
+Tailwind CSS, Recharts, framer-motion, lucide icons, Caddy.
 
 Footage: Pexels creators GK Kumawat, Aksinfo7, Karthick S, Joshua Santos, Riaz Uddin (Pexels License); ABODA
-abandoned-object dataset; CAVIAR (EC Funded CAVIAR project/IST 2001 37540). Details and links: [samples/SOURCES.md](samples/SOURCES.md).
+abandoned-object dataset; a clip recorded by the author at the Builders 2026 venue (not committed; faces blurred
+everywhere it is shown). Details: [samples/SOURCES.md](samples/SOURCES.md).
 
 License: MIT (code). Sample footage keeps its own licence.
