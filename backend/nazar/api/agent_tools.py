@@ -233,7 +233,7 @@ def camera_gaps(p: dict) -> dict:
     """Periods with no stored footage (no segment) inside the window - honest 'camera was offline'."""
     cam = p["camera_id"]
     t_from, t_to = _t(p["time_from"]), _t(p["time_to"])
-    segs = db.fetch_all("SELECT t_start, t_end FROM segments WHERE camera_id=%s AND t_end >= %s AND t_start <= %s "
+    segs = db.fetch_all("SELECT t_start, t_end FROM coverage WHERE camera_id=%s AND t_end >= %s AND t_start <= %s "
                         "ORDER BY t_start", (cam, t_from, t_to))
     gaps = []
     cur = t_from
@@ -249,7 +249,7 @@ def camera_gaps(p: dict) -> dict:
 
 
 def coverage(camera_id: str | None = None) -> list[dict]:
-    rows = db.fetch_all("SELECT camera_id, min(t_start) AS t0, max(t_end) AS t1 FROM segments "
+    rows = db.fetch_all("SELECT camera_id, min(t_start) AS t0, max(t_end) AS t1 FROM coverage "
                         + ("WHERE camera_id=%s " if camera_id else "") + "GROUP BY camera_id",
                         (camera_id,) if camera_id else None)
     return [{"camera_id": r["camera_id"], "from": to_local(r["t0"]).isoformat(), "to": to_local(r["t1"]).isoformat()}

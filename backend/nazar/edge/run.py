@@ -12,6 +12,7 @@ import sys
 import threading
 import time
 import uuid
+from pathlib import Path
 from datetime import datetime, timezone
 
 import cv2
@@ -44,6 +45,8 @@ def parse_args(argv=None):
     ap.add_argument("--preview", action="store_true")
     ap.add_argument("--device", default="auto")
     ap.add_argument("--job", type=int)
+    ap.add_argument("--legacy", action="store_true", help="files: v1 OpenCV loop with re-encoded segments")
+    ap.add_argument("--batch", type=int, default=16)
     return ap.parse_args(argv)
 
 
@@ -154,10 +157,13 @@ def main(argv=None) -> int:
     def on_status(ok: bool, note: str) -> None:
         hb.tick(datetime.now(timezone.utc), ok, 0, note, force=True)
 
+    if kind == "file" and not args.simulate_live and not args.legacy and not args.preview:
+        return run_fast(args, s, source, settings, zones, start_time, run_id, hb)
+
     src = FrameSource(source, kind, start_time=start_time, simulate_live=args.simulate_live, loop=args.loop,
                       pace=(kind == "file" and not args.fast and not args.simulate_live), min_interval=seg_interval,
                       on_status=on_status, upscale=upscale, stop=stop_ev.is_set)
-    detector = Detector(args.device, imgsz=imgsz, conf=conf)
+    detector = Detector(args.device, imgsz=imgsz, conf=conf, fps=s.DETECT_FPS)
     blur = FaceBlurrer()
     tracks = TrackManager(args.camera, run_id, track_end_s=s.TRACK_END_S, upsert_every_s=s.ACTIVE_UPSERT_S,
                           job_id=args.job)
@@ -211,7 +217,7 @@ def main(argv=None) -> int:
                     n_skipped += 1
                 blur.set_persons([d.box for d in dets if d.cls == "person"])
                 blurred = blur.apply(img)
-                tracks.update(dets, blurred, t)
+                tracks.update(dets, img, t)
                 tracks.step(t)
                 if src.live or args.simulate_live or (time.monotonic() - last_snap) >= 2.0:
                     snap.write(blurred)
@@ -243,6 +249,63 @@ def main(argv=None) -> int:
         "wall_s": round(wall, 1), "source_s": round(pos, 1), "speed_x": round(pos / wall, 2) if wall else None,
         "tracks_final": tracks.stats["tracks_final"], "noise_dropped": tracks.stats["noise_dropped"],
         "segments": segs.closed_count, "device": str(detector.device), "imgsz": imgsz, "upscale": upscale,
+    }
+    log.info("summary %s", json.dumps(summary))
+    print("EDGE_SUMMARY " + json.dumps(summary), flush=True)
+    db.close_pool()
+    return exit_code
+
+
+def run_fast(args, s, source: str, settings: dict, zones: list, start_time, run_id: str, hb) -> int:
+    """v2 file path: ffmpeg sampling + batched detection; no re-encode (clips are cut from the original)."""
+    from .filerun import FFmpegReader, run_file
+
+    src_h = FFmpegReader(source, s.DETECT_FPS).src_h
+    upscale = float(settings.get("upscale") or (2.0 if 0 < src_h < 720 else 1.0))
+    imgsz = int(settings.get("detect_imgsz") or (960 if upscale > 1 else s.DETECT_IMGSZ))
+    conf = float(settings.get("detect_conf") or s.DETECT_CONF)
+    detector = Detector(args.device, imgsz=imgsz, conf=conf, fps=s.DETECT_FPS)
+    tracks = TrackManager(args.camera, run_id, track_end_s=s.TRACK_END_S, upsert_every_s=s.ACTIVE_UPSERT_S,
+                          job_id=args.job)
+    tracks.wall_upsert = True
+    stop_ev = threading.Event()
+    for sig in ("SIGINT", "SIGTERM", "SIGBREAK"):
+        if hasattr(signal, sig):
+            try:
+                signal.signal(getattr(signal, sig), lambda *_: stop_ev.set())
+            except Exception:
+                pass
+    if args.job:
+        db.execute("UPDATE jobs SET state='processing', updated_at=now() WHERE id=%s", (args.job,))
+    log.info("edge(fast) %s run=%s imgsz=%d batch=%d", args.camera, run_id, imgsz, args.batch)
+    t = datetime.now(timezone.utc)
+    exit_code = 0
+    r: dict = {}
+    try:
+        r = run_file(camera_id=args.camera, source=source, start_time=start_time, detector=detector, tracks=tracks,
+                     hb=hb, zones=zones, fps=s.DETECT_FPS, batch=args.batch, max_seconds=args.max_seconds,
+                     job_id=args.job, stop=stop_ev.is_set)
+    except Exception as e:
+        log.exception("edge crashed: %s", e)
+        exit_code = 1
+        if args.job:
+            db.execute("UPDATE jobs SET state='error', error=%s, updated_at=now() WHERE id=%s", (str(e)[:500], args.job))
+    finally:
+        tracks.finalize_all()
+        hb.tick(t, False, 0, "stopped", force=True, processed_s=r.get("pos"), duration_s=r.get("duration"))
+        if args.job and exit_code == 0:
+            db.execute("UPDATE jobs SET state='enriching', processed_s=GREATEST(processed_s, %s), updated_at=now() "
+                       "WHERE id=%s AND state IN ('queued','processing')", (r.get("pos", 0), args.job))
+    wall = r.get("wall") or 1e-9
+    summary = {
+        "camera": args.camera, "run_id": run_id, "mode": "fast", "frames": r.get("frames"),
+        "detect_fps": round(r["frames"] / r["det_time"], 1) if r.get("det_time") else None,
+        "wall_s": round(wall, 1), "source_s": round(r.get("pos", 0), 1),
+        "speed_x": round(r.get("pos", 0) / wall, 2) if r else None, "keyframes": r.get("keyframes"),
+        "tracks_final": tracks.stats["tracks_final"], "noise_dropped": tracks.stats["noise_dropped"],
+        "device": str(detector.device), "imgsz": imgsz, "weights": Path(detector.weights).name,
+        "tracker": detector.tracker_kind, "size": f'{r.get("width")}x{r.get("height")}',
+        "det_s": round(r.get("det_time", 0), 2), "prof": r.get("prof"),
     }
     log.info("summary %s", json.dumps(summary))
     print("EDGE_SUMMARY " + json.dumps(summary), flush=True)

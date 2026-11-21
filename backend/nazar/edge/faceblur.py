@@ -65,6 +65,21 @@ class FaceBlurrer:
         small = cv2.resize(roi, (max(1, (x2 - x1) // 8), max(1, (y2 - y1) // 8)), interpolation=cv2.INTER_LINEAR)
         roi[:] = cv2.GaussianBlur(cv2.resize(small, (x2 - x1, y2 - y1), interpolation=cv2.INTER_LINEAR), (k, k), 0)
 
+    def egress(self, frame: np.ndarray, heads: list[tuple[float, float, float, float]], detect: bool = True,
+               inplace: bool = False, reuse: bool = False) -> np.ndarray:
+        """Blur at egress (v2): every known head box (from tracked persons) + YuNet faces on this very image.
+        reuse=True: when not detecting on this frame, blur the previous frame's faces (padded more)."""
+        img = frame if inplace else frame.copy()
+        h, w = img.shape[:2]
+        faces = self.detect(img) if detect else (self.faces if reuse else [])
+        pad = 0.3 if detect else 0.5
+        for fx1, fy1, fx2, fy2 in faces:
+            pw, ph = (fx2 - fx1) * pad, (fy2 - fy1) * pad
+            self._blur_region(img, int((fx1 - pw) * w), int((fy1 - ph) * h), int((fx2 + pw) * w), int((fy2 + ph) * h))
+        for hx1, hy1, hx2, hy2 in heads:
+            self._blur_region(img, int(hx1 * w), int(hy1 * h), int(np.ceil(hx2 * w)), int(np.ceil(hy2 * h)) + 1)
+        return img
+
     def apply(self, frame: np.ndarray, inplace: bool = False) -> np.ndarray:
         """Blur the latest faces (padded 30 %) and the head area of persons without a detected face."""
         img = frame if inplace else frame.copy()

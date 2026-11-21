@@ -59,7 +59,7 @@ def camera_rows(camera_id: str | None = None) -> list[dict]:
              FROM cameras c
              LEFT JOIN LATERAL (SELECT t, ok, note, fps_proc FROM camera_status s WHERE s.camera_id=c.id
                                 ORDER BY t DESC LIMIT 1) hb ON true
-             LEFT JOIN LATERAL (SELECT min(t_start) t0, max(t_end) t1 FROM segments g WHERE g.camera_id=c.id) cov ON true
+             LEFT JOIN LATERAL (SELECT min(t_start) t0, max(t_end) t1 FROM coverage g WHERE g.camera_id=c.id) cov ON true
             {"WHERE c.id=%s" if camera_id else ""} ORDER BY c.created_at""",
         (today, camera_id) if camera_id else (today,))
     mgr = get_manager()

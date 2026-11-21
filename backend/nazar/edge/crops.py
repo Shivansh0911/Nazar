@@ -52,32 +52,36 @@ class Candidate:
 
 @dataclass
 class CropKeeper:
+    """Keeps <= 3 candidate crops. Crops are cut from the raw frame and every head box in view is blurred at once,
+    so no unblurred face ever leaves this object (a YuNet pass runs again when the crop is written)."""
     first: Candidate | None = None
     best: Candidate | None = None
     middle: Candidate | None = None
     n: int = 0
     _next_mid: int = 2
-    _all: list = field(default_factory=list)
 
-    def offer(self, blurred_frame: np.ndarray, box, conf: float, t_ms: int) -> None:
+    def offer(self, frame: np.ndarray, box, conf: float, t_ms: int, heads=()) -> None:
         self.n += 1
+        h, w = frame.shape[:2]
+        bw, bh = (box[2] - box[0]) * w, (box[3] - box[1]) * h
+        edge = box[0] <= 0.005 or box[1] <= 0.005 or box[2] >= 0.995 or box[3] >= 0.995
+        q = math.sqrt(max(1.0, bw * bh)) * conf * (0.5 if edge else 1.0)  # cheap proxy, no pixel work
         is_first = self.first is None
         take_mid = self.n == self._next_mid
-        need = is_first or take_mid
-        # quality needs the crop; compute cheaply only when it could matter
-        crop = cut(blurred_frame, box)
+        better = self.best is None or q > self.best.q * 1.1
+        if not (is_first or take_mid or better):
+            return
+        crop = cut_blurred(frame, box, heads)
         if crop.size == 0:
             return
-        q = quality(crop, box, conf)
         cand = Candidate(crop, tuple(box), conf, q, t_ms)
         if is_first:
             self.first = cand
         if take_mid:
             self.middle = cand  # index doubles each time -> ends between n/4 and n/2
             self._next_mid *= 2
-        if self.best is None or q > self.best.q:
+        if better:
             self.best = cand
-        _ = need
 
     def choose(self) -> list[Candidate]:
         """Up to 3 distinct crops, best first."""
@@ -86,3 +90,21 @@ class CropKeeper:
             if c is not None and all(c is not o for o in out):
                 out.append(c)
         return out[:3]
+
+
+def cut_blurred(frame: np.ndarray, box, heads=(), pad: float = PAD) -> np.ndarray:
+    """Cut a padded crop and blur every head box that overlaps it (heads in normalized frame coords)."""
+    from .faceblur import FaceBlurrer
+
+    h, w = frame.shape[:2]
+    x1, y1, x2, y2 = box
+    pw, ph = (x2 - x1) * pad, (y2 - y1) * pad
+    X1, Y1 = max(0, int((x1 - pw) * w)), max(0, int((y1 - ph) * h))
+    X2, Y2 = min(w, int(math.ceil((x2 + pw) * w))), min(h, int(math.ceil((y2 + ph) * h)))
+    crop = frame[Y1:Y2, X1:X2].copy()
+    for hx1, hy1, hx2, hy2 in heads:
+        a1, b1, a2, b2 = int(hx1 * w) - X1, int(hy1 * h) - Y1, int(math.ceil(hx2 * w)) - X1, int(math.ceil(hy2 * h)) - Y1 + 1
+        if a2 <= 0 or b2 <= 0 or a1 >= crop.shape[1] or b1 >= crop.shape[0]:
+            continue
+        FaceBlurrer._blur_region(crop, a1, b1, a2, b2)
+    return crop

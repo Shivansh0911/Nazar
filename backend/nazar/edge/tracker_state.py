@@ -51,6 +51,18 @@ ON CONFLICT (camera_id, run_id, local_id) DO UPDATE SET
 RETURNING id
 """
 
+UPSERT_NORET = UPSERT.replace("RETURNING id", "")
+
+FINAL_UPSERT = """
+INSERT INTO tracks(camera_id, run_id, local_id, cls, t_start, t_end, active, path, max_conf, job_id, crop_keys,
+                   appearance, quality, updated_at)
+VALUES (%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s,%s,%s,%s, now())
+ON CONFLICT (camera_id, run_id, local_id) DO UPDATE SET
+  path = EXCLUDED.path, t_end = EXCLUDED.t_end, cls = EXCLUDED.cls, max_conf = EXCLUDED.max_conf,
+  active = false, crop_keys = EXCLUDED.crop_keys, appearance = EXCLUDED.appearance, quality = EXCLUDED.quality,
+  updated_at = now()
+"""
+
 
 class TrackManager:
     def __init__(self, camera_id: str, run_id: str, *, track_end_s: float, upsert_every_s: float,
@@ -69,12 +81,17 @@ class TrackManager:
         # finalize (crop encode + writes + DB) runs on a writer thread so crowded scenes don't stall decoding
         self._lock = threading.Lock()
         self._q: "queue.Queue[TrackState | None]" = queue.Queue()
+        self._tls = threading.local()  # one YuNet per crop-IO thread
+        self.wall_upsert = False
+        self._last_wall_upsert = 0.0
         self._writer = threading.Thread(target=self._write_loop, name="track-writer", daemon=True)
         self._writer.start()
 
     # ---- updates -------------------------------------------------------------------
-    def update(self, dets: list[Det], blurred: np.ndarray, t: datetime) -> None:
+    def update(self, dets: list[Det], frame: np.ndarray, t: datetime) -> None:
+        """`frame` may be raw: crops blur every head box in view when cut (and YuNet runs again on write)."""
         t_ms = dt_to_ms(t)
+        heads = [d.head for d in dets if d.cls == "person"]
         for d in dets:
             st = self.active.get(d.track_id)
             if st is None:
@@ -82,21 +99,29 @@ class TrackManager:
                 st = TrackState(d.track_id + gen * 1_000_000, first_seen=t)
                 self.active[d.track_id] = st
                 self.stats["tracks_started"] += 1
-            st.path.append([t_ms, round(d.box[0], 4), round(d.box[1], 4), round(d.box[2], 4), round(d.box[3], 4),
-                            round(d.conf, 3)])
+            pt = [t_ms, round(d.box[0], 4), round(d.box[1], 4), round(d.box[2], 4), round(d.box[3], 4), round(d.conf, 3)]
+            hb = d.head
+            if hb is not None:
+                pt.extend(round(v, 4) for v in hb)
+            st.path.append(pt)
             st.votes[d.cls] += 1
             st.max_conf = max(st.max_conf, d.conf)
             st.last_seen = t
             st.dirty = True
-            st.crops.offer(blurred, d.box, d.conf, t_ms)
+            st.crops.offer(frame, d.box, d.conf, t_ms, heads)
 
     def step(self, t: datetime, force_upsert: bool = False) -> None:
-        """Finalize stale tracks; periodically upsert active ones."""
+        """Finalize stale tracks; periodically upsert active ones (interval in wall-clock time when files run fast)."""
         stale = [k for k, st in self.active.items() if (t - st.last_seen).total_seconds() >= self.track_end_s]
         for k in stale:
             self._generation[k] += 1
             self._finalize(self.active.pop(k))
-        if force_upsert or self._last_upsert is None or (t - self._last_upsert).total_seconds() >= self.upsert_every_s:
+        if self.wall_upsert:
+            now = time.monotonic()
+            if force_upsert or now - self._last_wall_upsert >= self.upsert_every_s:
+                self._upsert_active()
+                self._last_wall_upsert = now
+        elif force_upsert or self._last_upsert is None or (t - self._last_upsert).total_seconds() >= self.upsert_every_s:
             self._upsert_active()
             self._last_upsert = t
         self._retry_pending()
@@ -109,18 +134,34 @@ class TrackManager:
         self._q.put(None)
 
     def _write_loop(self) -> None:
+        """Drain finalized tracks in batches: crops encoded/written in parallel, one DB transaction per batch."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        pool = ThreadPoolExecutor(max_workers=3, thread_name_prefix="crop-io")
         while True:
-            st = self._q.get()
+            first = self._q.get()
+            batch = [first]
+            while len(batch) < 48:
+                try:
+                    batch.append(self._q.get_nowait())
+                except queue.Empty:
+                    break
+            done = first is None or None in batch
+            items = [st for st in batch if st is not None]
             try:
-                if st is None:
-                    return
-                if not self._write_final(st):
-                    with self._lock:
-                        self.pending_final.append((time.monotonic(), st))
+                if items:
+                    failed = self._write_batch(items, pool)
+                    if failed:
+                        with self._lock:
+                            self.pending_final.extend((time.monotonic(), st) for st in failed)
             except Exception as e:
                 log.error("track writer error: %s", e)
             finally:
-                self._q.task_done()
+                for _ in batch:
+                    self._q.task_done()
+            if done:
+                pool.shutdown(wait=True)
+                return
 
     # ---- DB --------------------------------------------------------------------------
     def _row(self, st: TrackState, active: bool) -> tuple:
@@ -133,9 +174,11 @@ class TrackManager:
             return
         try:
             with db.conn() as c:
-                for st in rows:
-                    st.db_id = c.execute(UPSERT, self._row(st, True)).fetchone()["id"]
-                    st.dirty = False
+                with c.cursor() as cur:
+                    cur.executemany(UPSERT_NORET, [self._row(st, True) for st in rows])
+            for st in rows:
+                st.dirty = False
+                st.db_id = -1  # exists in DB (deleted by key if it ends up as noise)
             self.stats["upserts"] += len(rows)
         except Exception as e:
             log.warning("active upsert failed (will retry): %s", e)
@@ -145,39 +188,63 @@ class TrackManager:
             self.stats["noise_dropped"] += 1
             if st.db_id is not None:
                 try:
-                    db.execute("DELETE FROM tracks WHERE id=%s", (st.db_id,))
+                    db.execute("DELETE FROM tracks WHERE camera_id=%s AND run_id=%s AND local_id=%s",
+                               (self.camera_id, self.run_id, st.local_id))
                 except Exception:
                     pass
             return
         self._q.put(st)
 
-    def _write_final(self, st: TrackState) -> bool:
+    def _crops_for(self, st: TrackState) -> tuple[list[str], list | None, float | None]:
+        """Blur (YuNet second pass), encode and store <= 3 crops. Keys use run/local id so no DB round trip is needed."""
+        if getattr(st, "_crop_result", None) is not None:
+            return st._crop_result  # type: ignore[attr-defined]
+        keys: list[str] = []
+        app = None
+        chosen = st.crops.choose()
+        for n, cand in enumerate(chosen):
+            img = finish(self._blur_local().egress(cand.img, [], detect=True))
+            ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            if not ok:
+                continue
+            key = f"crops/{self.camera_id}/{self.run_id}_{st.local_id}_{n}.jpg"
+            storage.put_bytes(buf.tobytes(), key)
+            keys.append(key)
+            if n == 0:
+                app = fingerprint(cand.img, st.cls)
+        vec = app.tolist() if app is not None and np.any(app) else None
+        res = (keys, vec, round(float(chosen[0].q), 2) if chosen else None)
+        st._crop_result = res  # type: ignore[attr-defined]
+        return res
+
+    def _blur_local(self):
+        from .faceblur import FaceBlurrer
+
+        b = getattr(self._tls, "blur", None)
+        if b is None:
+            b = self._tls.blur = FaceBlurrer()
+        return b
+
+    def _write_batch(self, items: list[TrackState], pool) -> list[TrackState]:
+        crops = list(pool.map(self._crops_for, items))
         try:
             with db.conn() as c:
-                tid = c.execute(UPSERT, self._row(st, True)).fetchone()["id"]
-            st.db_id = tid
-            keys: list[str] = []
-            app = None
-            chosen = st.crops.choose()
-            for n, cand in enumerate(chosen):
-                img = finish(cand.img)
-                ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 85])
-                if not ok:
-                    continue
-                key = f"crops/{self.camera_id}/{tid}_{n}.jpg"
-                storage.put_bytes(buf.tobytes(), key)
-                keys.append(key)
-                if n == 0:
-                    app = fingerprint(cand.img, st.cls)
-            db.execute(
-                "UPDATE tracks SET active=false, crop_keys=%s, appearance=%s, updated_at=now() WHERE id=%s",
-                (keys, Vector(app.tolist()) if app is not None and np.any(app) else None, tid),
-            )
-            self.stats["tracks_final"] += 1
-            return True
+                with c.cursor() as cur:
+                    cur.executemany(FINAL_UPSERT, [
+                        (*self._row(st, False), keys, Vector(vec) if vec else None, q)
+                        for st, (keys, vec, q) in zip(items, crops)
+                    ])
+            self.stats["tracks_final"] += len(items)
+            return []
         except Exception as e:
-            log.warning("finalize failed for local %d (buffering): %s", st.local_id, e)
-            return False
+            log.warning("finalize batch failed for %d tracks (buffering): %s", len(items), e)
+            return items
+
+    def _write_final(self, st: TrackState) -> bool:
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            return not self._write_batch([st], pool)
 
     def _retry_pending(self, force: bool = False) -> None:
         with self._lock:

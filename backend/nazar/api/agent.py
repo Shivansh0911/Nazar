@@ -205,9 +205,9 @@ class CompiledRule(BaseModel):
 def _replay_window(camera_id: str) -> tuple[datetime, datetime]:
     now = datetime.now(timezone.utc)
     t_to, t_from = now, now - timedelta(hours=24)
-    last = db.fetch_val("SELECT max(t_end) FROM segments WHERE camera_id=%s", (camera_id,))
+    last = db.fetch_val("SELECT max(t_end) FROM coverage WHERE camera_id=%s", (camera_id,))
     if last is not None and last < t_from:
-        first = db.fetch_val("SELECT min(t_start) FROM segments WHERE camera_id=%s", (camera_id,))
+        first = db.fetch_val("SELECT min(t_start) FROM coverage WHERE camera_id=%s", (camera_id,))
         t_to = last + timedelta(seconds=1)
         t_from = max(first, t_to - timedelta(hours=24))
     return t_from, t_to

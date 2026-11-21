@@ -22,7 +22,7 @@ def compute_metrics() -> dict:
     by_model = [{"model": r["model"], "usd": float(r["usd"]), "inr": round(float(r["usd"]) * inr, 2), "calls": r["n"]}
                 for r in db.fetch_all("SELECT model, sum(cost_usd) usd, count(*) n FROM usage GROUP BY 1 ORDER BY 2 DESC")]
     # footage actually watched by the edge (stored segments)
-    footage_h = float(db.fetch_val("SELECT COALESCE(sum(extract(epoch FROM t_end - t_start)),0) FROM segments") or 0) / 3600
+    footage_h = float(db.fetch_val("SELECT COALESCE(sum(extract(epoch FROM t_end - t_start)),0) FROM coverage") or 0) / 3600
     # cost of describing the footage we hold: the latest caption call of every enriched track (+ embeddings);
     # re-enrichment experiments still show in total spend, but do not inflate the per-camera-day figure
     cap_usd = float(db.fetch_val(

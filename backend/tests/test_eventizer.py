@@ -75,3 +75,31 @@ def test_feet_anchor_used_for_person():
 def test_empty_inputs():
     assert eventize([], "person", [ZONE]) == ([], [])
     assert eventize(make_path([(0.5, 0.6)] * 5), "person", []) == ([], [])
+
+
+def _walk(points, t0=0, dt=200):
+    # person boxes whose feet (anchor) follow the given points
+    return [[t0 + i * dt, x - 0.02, y - 0.1, x + 0.02, y, 0.9] for i, (x, y) in enumerate(points)]
+
+
+def test_line_crossing_in_and_out():
+    from nazar.core.eventizer import eventize
+
+    line = {"name": "door", "label": "Door", "type": "line", "polygon": [[0.2, 0.5], [0.8, 0.5]], "direction": "right"}
+    # A->B points east; with y down, "right" of travel is below the line (y > 0.5) = inside
+    down = _walk([(0.5, y) for y in (0.30, 0.35, 0.40, 0.45, 0.55, 0.60, 0.65, 0.70)])
+    ev, zp = eventize(down, "person", [line])
+    assert [e.type for e in ev] == ["cross_in"] and zp == ["door"]
+    up = _walk([(0.5, y) for y in (0.70, 0.65, 0.60, 0.55, 0.45, 0.40, 0.35)])
+    ev, _ = eventize(up, "person", [line])
+    assert [e.type for e in ev] == ["cross_out"]
+
+
+def test_line_crossing_outside_segment_and_jitter_ignored():
+    from nazar.core.eventizer import eventize
+
+    line = {"name": "door", "label": "Door", "type": "line", "polygon": [[0.2, 0.5], [0.4, 0.5]]}
+    beside = _walk([(0.8, y) for y in (0.3, 0.4, 0.45, 0.55, 0.6, 0.7)])  # passes the extension, not the segment
+    assert eventize(beside, "person", [line])[0] == []
+    jitter = _walk([(0.3, y) for y in (0.45, 0.48, 0.52, 0.47, 0.49, 0.46)])  # one stray point across: hysteresis
+    assert eventize(jitter, "person", [line])[0] == []
