@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     LEVEL_CANDIDATE_SIM: float = 0.25
     MEDIAMTX_HOST: str = "localhost"
     VISION_URL: str = "http://127.0.0.1:8010"
-    VERIFY_MIN_SIM: float = 0.05  # SigLIP text->image cosine needed (with an AI "yes") for Probable
+    VERIFY_MIN_SIM: float = 0.03  # SigLIP text->image cosine needed (with an AI "yes") for Probable
     JOURNEY_MIN_SIM: float = 0.80  # SigLIP image->image cosine for "same-looking" across cameras
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_BOT_USERNAME: str = ""

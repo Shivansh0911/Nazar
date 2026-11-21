@@ -38,8 +38,10 @@ Rules:
 - Counts come ONLY from count_events (or peak_occupancy for "how crowded / sabse zyada bheed"). If the owner names
   only a camera or no place ("lobby mein kitne log aaye", "aaj kitne log aaye"), use event "present" with zone null.
   Use event "enter" with a zone ONLY when the owner names a place that matches a zone label ("counter pe", "gate pe").
-- Descriptions ("red shirt", "laal shirt", "carrying a box", "helmet wala") go to search_tracks with structured
-  attributes (colours, carrying, headwear words in text, vehicle) AND a short English `text` describing the person.
+- Descriptions of people, objects or vehicles ("red shirt", "laal shirt", "carrying a bag", "helmet wala", "green
+  backpack", "who took the bag") go to visual_search FIRST with a short English visual phrase - it searches the
+  local visual index, which covers every track and scene frame. Use search_tracks for descriptions only as a second
+  try. For "who took / picked up X" also call list_events (object_removed).
 - "Who came / kaun aaya / show me" without a description -> search_tracks without attributes (tracker facts).
 - If the owner asks to be notified or alerted ("mujhe batana", "alert me", "jab bhi", "notify"), call create_rule
   with the owner's words. It is not activated until the owner taps Activate - say so briefly.
@@ -366,7 +368,21 @@ def hit_thumbs(hits: list[dict], token: str | None) -> list[dict]:
 def _exec_tool(name: str, args: dict, ref: str, token: str | None) -> dict:
     a = {k: v for k, v in args.items() if v is not None}
     if name == "search_tracks":
-        return agent_tools.search_tracks(a, ref=ref)
+        r = agent_tools.search_tracks(a, ref=ref)
+        attr_keys = ("upper_color", "lower_color", "carrying", "vehicle_type", "vehicle_color", "action", "text")
+        if not r.get("results") and any(a.get(k) for k in attr_keys):
+            # most tracks are not described (captions are on demand): fall back to the local visual index
+            from . import agent_tools2 as t2
+
+            words = [a.get("text") or ""] + [f"{a[k]}" for k in ("upper_color", "lower_color", "vehicle_color", "vehicle_type", "action") if a.get(k)]
+            words += [f"carrying {c}" for c in a.get("carrying") or []]
+            phrase = " ".join(w for w in words if w).strip()[:120]
+            cls = [c for c in (a.get("cls") or []) if c not in ("person",)] or None
+            v = t2.visual_search_tool({"text": phrase, "time_from": a["time_from"], "time_to": a["time_to"],
+                                       "camera_ids": a.get("camera_ids"), "cls": cls, "limit": a.get("limit") or 8}, ref)
+            return {**r, "visual_fallback": True, "visual_hits": v.get("hits", []), "_visual": v,
+                    "note": f"no described tracks; searched the visual index for '{phrase}' instead: {len(v.get('hits', []))} hits"}
+        return r
     if name == "count_events":
         return agent_tools.count_events(a)
     if name == "peak_occupancy":
@@ -536,6 +552,10 @@ def run_agent(question: str, camera_id: str | None, *, ref: str, token: str | No
             idx = len(calls)
             calls.append({"index": idx, "name": fc.name, "args": args, "result": result})
             model_view = {k: v for k, v in result.items() if not k.startswith("_")} if isinstance(result, dict) else result
+            if isinstance(model_view, dict) and model_view.get("visual_hits") is not None:
+                model_view = {**model_view, "visual_hits": [{k: h.get(k) for k in ("kind", "id", "track_id", "camera_id",
+                                                                                 "cls", "t", "level", "why")}
+                                                            for h in model_view["visual_hits"]]}
             if isinstance(model_view, dict) and fc.name == "visual_search":
                 model_view = {**model_view, "hits": [{k: h.get(k) for k in ("kind", "id", "track_id", "camera_id", "cls",
                                                                               "t", "level", "why")}
@@ -570,8 +590,9 @@ def assemble(answer: AgentAnswer, calls: list[dict], token: str | None) -> dict:
                       "kind": "track"})
     # visual search hits (tracks + scene keyframes); verified "no" hits were already dropped by the server
     for c in calls:
-        if c["name"] == "visual_search" and isinstance(c["result"], dict):
-            for h in c["result"].get("hits", [])[:8]:
+        vres = c["result"].get("_visual") if c["name"] == "search_tracks" and isinstance(c["result"], dict) else None
+        if (c["name"] == "visual_search" and isinstance(c["result"], dict)) or vres:
+            for h in (vres or c["result"]).get("hits", [])[:8]:
                 if any(x.get("kind") == h["kind"] and (x.get("track_id") == h.get("track_id") if h["kind"] == "track"
                                                      else x.get("keyframe_id") == h["id"]) for x in clips):
                     continue

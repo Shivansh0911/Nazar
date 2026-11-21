@@ -60,10 +60,31 @@ Check "rule compile + replay" {
   Invoke-RestMethod -Method Delete "$Api/api/rules/$($r.rule_id)" -Headers $hdr | Out-Null
   "'$($r.human)' would have fired $($r.replay.count)x (draft deleted)"
 }
-Check "metrics" {
+Check "vision service (local index)" {
+  $v = Invoke-RestMethod "http://127.0.0.1:8010/health"
+  "tracks indexed=$($v.tracks_indexed) keyframes=$($v.keyframes_indexed) device=$($v.device)"
+}
+Check "visual search (words)" {
+  # multipart via curl.exe (Invoke-RestMethod -Form needs PowerShell 6+)
+  $raw = & curl.exe -s -X POST "$Api/api/search/visual" -H "X-Nazar-Token: $tok" -F "text=person carrying a backpack" -F "limit=5"
+  $r = $raw | ConvertFrom-Json
+  if ($r.hits.Count -lt 1) { throw "no hits" }
+  "$($r.hits.Count) hits, top: $($r.hits[0].camera_id) $($r.hits[0].cls) sim=$($r.hits[0].sim) level=$($r.hits[0].level)"
+}
+Check "count receipts" {
+  $q = (Invoke-RestMethod "$Api/api/count?camera_id=office-desk&event=present&from=2026-01-01T00:00:00&to=2030-01-01T00:00:00" -Headers $hdr)
+  if ($q._receipts.Count -ne $q.value) { throw "receipts $($q._receipts.Count) != count $($q.value)" }
+  "office-desk people=$($q.value), receipts=$($q._receipts.Count), bucket=$($q.bucket)"
+}
+Check "security events + digest" {
+  $e = Invoke-RestMethod "$Api/api/sec-events" -Headers $hdr
+  $d = Invoke-RestMethod "$Api/api/digest?voice=false" -Headers $hdr
+  "$($e.Count) events; digest: $($d.text.Substring(0, [Math]::Min(80, $d.text.Length)))"
+}
+Check "metrics (unit costs)" {
   $m = Invoke-RestMethod "$Api/api/metrics" -Headers $hdr
-  "cost/camera-day=$($m.cost_per_camera_day_inr) INR, naive=$($m.naive_per_camera_day_inr) INR, tracks=$($m.tracks_processed)"
+  "index=Rs0, question p50=Rs$($m.unit_costs.question_p50_inr), footage=$($m.index.footage_hours) h, tracks=$($m.index.tracks)"
 }
 $results | Format-Table -AutoSize -Wrap
-$failed = ($results | Where-Object Result -eq "FAIL").Count
+$failed = @($results | Where-Object Result -eq "FAIL").Count
 if ($failed) { Write-Host "SMOKE: FAIL ($failed failed)" -ForegroundColor Red; exit 1 } else { Write-Host "SMOKE: PASS" -ForegroundColor Green }

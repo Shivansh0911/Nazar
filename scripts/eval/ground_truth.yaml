@@ -1,0 +1,25 @@
+# Hand counts (W12): people visible >= ~1.5 s in each window, counted by looking at frames sampled every 2-4 s.
+# Times are local (IST) on the demo data loaded by scripts/demo_setup.py (re-check them after a reset: they follow
+# the manifest's start times). "source" + "offset/duration" let eval_counts.py re-run a tracker on the same footage.
+windows:
+  - name: Builders venue, first 60 s
+    camera: builders-venue
+    source: samples/hackathon.mp4
+    offset_s: 0
+    duration_s: 60
+    truth: 3
+    note: three people at the team desk (left, middle, right behind a chair); nobody walks through
+  - name: Office desk (ABODA bag clip)
+    camera: office-desk
+    source: samples/clip6_bag.mp4
+    offset_s: 0
+    duration_s: 120
+    truth: 2
+    note: one person leaves the bag, a second person later takes it
+  - name: Shop counter (veg stall), people on foot
+    camera: shop-counter
+    source: samples/clip1.mp4
+    offset_s: 0
+    duration_s: 32
+    truth: 3
+    note: the vendor + two pedestrians walking past; motorcycle riders on the road are NOT counted here (the tracker does count riders as people, so this window measures that over-count honestly)

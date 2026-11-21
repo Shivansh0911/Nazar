@@ -105,6 +105,8 @@ def answer(text: str, ref: str) -> dict:
 # ---- bot ------------------------------------------------------------------------------------------------------------
 def main() -> int:
     setup_logging("nazar.telegram")
+    for noisy in ("apscheduler", "httpx", "telegram.ext"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
     s = get_settings()
     if not s.TELEGRAM_BOT_TOKEN:
         print("TELEGRAM_BOT_TOKEN is not set - the Telegram bot is disabled (everything else works). "

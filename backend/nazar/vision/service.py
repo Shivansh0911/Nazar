@@ -28,7 +28,7 @@ from .siglip import SigLIP
 log = logging.getLogger("nazar.vision")
 app = FastAPI(title="nazar-vision")
 model = SigLIP()
-IDLE_UNLOAD_S = 600
+IDLE_UNLOAD_S = 180  # release GPU memory quickly on an 8 GB laptop
 stats = {"tracks_indexed": 0, "keyframes_indexed": 0, "errors": 0, "started": time.time()}
 
 
@@ -140,7 +140,10 @@ def main() -> None:
     stop = threading.Event()
     threading.Thread(target=indexer_loop, args=(stop,), name="indexer", daemon=True).start()
     port = int(s.VISION_URL.rsplit(":", 1)[-1].split("/")[0])
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
+    import os
+
+    # loopback by default; the prod compose sets VISION_BIND=0.0.0.0 inside the private Docker network
+    uvicorn.run(app, host=os.environ.get("VISION_BIND", "127.0.0.1"), port=port, log_level="warning")
     stop.set()
 
 

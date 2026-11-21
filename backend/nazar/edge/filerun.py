@@ -127,9 +127,9 @@ class KeyframeWriter:
 class AnalysisView:
     """Annotated, face-blurred frame + stats for the upload page's live analysis view (data/live/<camera>.*)."""
 
-    def __init__(self, camera_id: str, zones: list[dict]):
-        self.jpg = storage.local_path(f"live/{camera_id}.jpg")
-        self.js = storage.local_path(f"live/{camera_id}.json")
+    def __init__(self, camera_id: str, zones: list[dict], suffix: str = ""):
+        self.jpg = storage.local_path(f"live/{camera_id}{suffix}.jpg")
+        self.js = storage.local_path(f"live/{camera_id}{suffix}.json")
         self.jpg.parent.mkdir(parents=True, exist_ok=True)
         self.zones = zones
         self.last = 0.0

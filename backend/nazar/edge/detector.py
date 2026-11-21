@@ -20,7 +20,7 @@ CLASS_IDS = [0, 1, 2, 3, 5, 7, 24, 26, 28, 39, 63, 67]
 COCO_NAMES = {0: "person", 1: "bicycle", 2: "car", 3: "motorcycle", 5: "bus", 7: "truck", 24: "backpack",
               26: "handbag", 28: "suitcase", 39: "bottle", 63: "laptop", 67: "cell phone"}
 DEFAULT_WEIGHTS = os.environ.get("NAZAR_DETECTOR", "yolo11s.pt")
-HEAD_FRAC = 0.2  # head box = top 20 % of a person box (pose models missed most small, far people in tests)
+HEAD_FRAC = 0.3  # head box = top 30 % of a person box (generous: seated or bending people) (pose models missed most small, far people in tests)
 
 
 @dataclass

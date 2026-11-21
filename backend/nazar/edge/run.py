@@ -174,6 +174,11 @@ def main(argv=None) -> int:
     segs = SegmentWriter(args.camera, s.SEGMENT_FPS, s.SEGMENT_SECONDS, s.SEGMENT_WIDTH)
     snap = Snapshot(args.camera)
     gate = MotionGate(s.MOTION_THRESH)
+    overlay = None
+    if src.live or args.simulate_live:
+        from .filerun import AnalysisView
+
+        overlay = AnalysisView(args.camera, zones, suffix="_view")
     ov = None
     if src.live or args.simulate_live:  # YOLOE loads only once the camera has an active custom object
         from ..api.teach import OpenVocab
@@ -237,6 +242,11 @@ def main(argv=None) -> int:
                 if src.live or args.simulate_live or (time.monotonic() - last_snap) >= 2.0:
                     snap.write(blurred)
                     last_snap = time.monotonic()
+                    if overlay is not None:
+                        overlay.note(dets)
+                        if overlay.due():  # AI overlay view for the live wall: boxes, ids, counts (faces blurred)
+                            overlay.last = time.monotonic()
+                            overlay.write(blurred.copy(), dets, {"t": t.isoformat(), "state": "live", "fps": round(n_det / max(det_time, 1e-6), 1)})
                 if preview:
                     preview.write(blurred, dets, n_det / max(det_time, 1e-6))
             else:

@@ -40,7 +40,7 @@ export default function LivePage() {
             <div key={c.id} className="overflow-hidden rounded-3xl border border-line bg-surface">
               <div className="relative aspect-video bg-black">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={c.live ? mjpegUrl(c.id) : snapshotUrl(c.id)} alt={c.name} className="h-full w-full object-contain" />
+                <img src={c.live ? `${mjpegUrl(c.id)}&overlay=1` : snapshotUrl(c.id)} alt={c.name} className="h-full w-full object-contain" />
                 <span className="absolute left-2 top-2 rounded-full bg-danger px-2 py-0.5 text-[10px] font-semibold text-white"><span className="live-dot">●</span> {c.live ? "LIVE" : "STARTING"}</span>
                 <button onClick={() => setBig(big ? null : c.id)} className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-white" aria-label="Enlarge"><Maximize2 size={14} /></button>
               </div>

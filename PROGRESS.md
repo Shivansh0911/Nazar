@@ -1,10 +1,12 @@
 # Nazar — build progress
 
-Spec: `BUILD_PROMPT.md` (source of truth). Resume by reading this file, then continue from **Exact next step**.
+Spec: `BUILD_PROMPT_V2.md` (v2, wins on conflicts) on top of `BUILD_PROMPT.md` (v1). Resume by reading this file,
+then continue from **Exact next step** in the v2 section at the end.
 
 ## Current status
-- **Current milestone:** M8 (deploy kit) — M5 live AI calls still need the key
-- **Exact next step:** see the last milestone entry below.
+- **v2 build (22 Nov 2026):** W1, W2, W3, W5, W6, W8, W9, W11, W13, W14 done; W4 done (text prompts); W12 partly;
+  W10 and W7 not done (see "v2" at the end).
+- **Exact next step:** see "v2 — exact next step" at the end of this file.
 
 ## Environment notes (discovered, do not re-discover)
 - ffmpeg 9.1 lives at `%LOCALAPPDATA%\Microsoft\WinGet\Packages\Gyan.FFmpeg_...\ffmpeg-9.1-full_build\bin` and may be
@@ -205,3 +207,46 @@ samples\clip2.mp4 cam1` + add camera `rtsp://localhost:8554/cam1`; worker `pytho
   ₹449 (crop-priced). A full-frame baseline measurement was NOT run: it would send a full frame to OpenAI, which this
   project forbids.
 - Demo video: `scripts/demo_video.mjs --channel chrome` records the full flow incl. a live alert (`demo/`, not committed).
+
+
+---
+
+# v2 (BUILD_PROMPT_V2.md) — 21/22 Nov 2026, night build
+
+MCP servers added for the next session: `playwright`, `chrome-devtools`, `context7` (`claude mcp list`). They load on
+the next session; this build used the Playwright npm package (`scripts/shots_v2.mjs`) and web docs instead.
+
+## Environment notes (v2)
+- **transformers must stay < 4.52** (4.52+ needs torch >= 2.6; we keep the cu121 torch 2.5.1). SigLIP 2
+  (`google/siglip2-base-patch16-224`) loads with 4.51.3, 768-d, fp16 on CUDA, ~850 MB GPU.
+- **Processing speed is CPU/Python-bound, not GPU-bound:** yolo11n/26n/11s/26s all ran ~80 fps through the
+  ultralytics predictor; feeding GPU tensors (letterbox in torch) got 100-145 fps. yolo11s chosen (more detections at
+  the same speed). Pose models (yolo11n-pose, yolo26n-pose) found almost no small/far people on street footage, so
+  head boxes are the top 30 % of each person box + a YuNet pass at egress.
+- ffmpeg CUDA decode (`-hwaccel cuda`) was *slower* than CPU decode for 720p at 5 fps sampling (26 s vs 2.4 s for
+  62 s of video) - CPU decode is the default, `NAZAR_HWDECODE=1` enables CUDA.
+- Windows file names are case-insensitive: `Evidence.tsx` and `evidence.tsx` are the same file.
+- Bash heredocs with backticks break in this tool environment - write patch scripts to files instead.
+- YOLOE (`yoloe-26s-seg.pt` + `mobileclip2_b.ts`, 242 MB, in `backend/models/`) works with text prompts.
+- Python Playwright 1.49.1 matches the Node one and reuses its Chromium (PDF rendering).
+- `FERNET_KEY` is generated into `.env` on first use (camera passwords).
+- The Telegram bot drops updates sent before it started (`drop_pending_updates`), so pairing needs a fresh `/pair`.
+
+## v2 workstreams
+| | Status | Notes |
+|---|---|---|
+| W14 v1 fixes | ✅ | receipts + readable buckets, people-seen rule, verified search, latency/cost routing, metrics redesign, real-Chrome clips |
+| W1 speed | ✅ (partly below target) | ffmpeg sampling + GPU-tensor batches (32) + ordered ByteTrack + batched DB writes; no re-encode; keyframes every 2 s; live analysis view |
+| W2 counting | ✅ | people seen = root tracks >= 1.5 s, conf >= 0.6; line counters (cross_in/out); receipts + proof reel + Verify toggle; clips from originals with egress blur, H.264 Main + poster |
+| W3 visual index | ✅ | vision service (SigLIP 2) indexes crops + keyframes; search by words/photo; recorded AI verification -> Probable; journey; photo audit; ENRICH_MODE=smart |
+| W4 teach | ✅ text prompts | YOLOE; replay on stored keyframes; live edge runs YOLOE ~1.7 fps when a camera has custom objects; rules accept `custom:<name>`. Visual (photo) prompts not done |
+| W5 security | ✅ | loitering, abandoned object, object removed, running, fall, crowding, after-hours, possible snatch; Flex AI check -> Probable; anomaly baseline; digest; FIR PDF (Hindi/English) |
+| W6 agent v2 | ✅ (latency above target) | 15 tools incl. analytics_query (sqlglot + nazar_ro), luna-first routing, SSE streaming, charts, clarify, 60 s cache |
+| W7 realtime voice | ❌ not done | P2, no time |
+| W8 Telegram | ✅ code, pairing needs the user | text/voice/photo in; text + OGG voice + clips + chart out; alert push; digest |
+| W9 onboarding | ✅ | resumable 8 MB parts, no re-encode, live analysis view, CCTV builder + Test connection, Excel/CSV import, ONVIF discovery, first-run wizard, hackathon clip as "Builders venue" |
+| W10 WebRTC live view | ❌ not done | live wall uses the face-blurred MJPEG (v1); WHEP + overlay left for later |
+| W11 UI | ✅ | dark-first night-watch design, side rail + bottom tabs, every screen redesigned, screenshots at 390/1440 both themes |
+| W12 data/eval | partly | hand counts (3 windows), tracker comparison, agent battery, language round-trip; MOT17/snatch datasets not downloaded (multi-GB) |
+| W13 cost truth | ✅ | unit costs measured from `usage`; Flex tier with fallback; projection calculator |
+| W15 MCP | ✅ | Higgsfield not added (fabricated video = fake evidence) |

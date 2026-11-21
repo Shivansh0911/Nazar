@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
   Start everything for the local demo, each service in its own window:
-  Docker (Postgres + MediaMTX), worker, API (:8000) and the web app (:3000).
+  Docker (Postgres + MediaMTX), vision service (:8010, SigLIP 2 index), worker, API (:8000), the web app (:3000)
+  and the Telegram bot when TELEGRAM_BOT_TOKEN is set.
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1
 #>
@@ -29,6 +30,7 @@ do { Start-Sleep -Seconds 2; $h = docker inspect -f "{{.State.Health.Status}}" n
 
 # 2. services
 $backend = Join-Path $root "backend"
+Start-Process powershell -WorkingDirectory $backend -ArgumentList "-NoExit", "-Command", "`$host.UI.RawUI.WindowTitle='Nazar vision'; & '$py' -m nazar.vision.service"
 Start-Process powershell -WorkingDirectory $backend -ArgumentList "-NoExit", "-Command", "`$host.UI.RawUI.WindowTitle='Nazar worker'; & '$py' -m nazar.worker.run"
 Start-Process powershell -WorkingDirectory $backend -ArgumentList "-NoExit", "-Command", "`$host.UI.RawUI.WindowTitle='Nazar API'; & '$py' -m uvicorn nazar.api.main:app --host 0.0.0.0 --port 8000"
 $web = Join-Path $root "web"
@@ -36,6 +38,10 @@ if ($DevWeb -or -not (Test-Path (Join-Path $web "out\index.html"))) {
   Start-Process powershell -WorkingDirectory $web -ArgumentList "-NoExit", "-Command", "`$host.UI.RawUI.WindowTitle='Nazar web'; npm run dev"
 } else {
   Start-Process powershell -WorkingDirectory (Join-Path $web "out") -ArgumentList "-NoExit", "-Command", "`$host.UI.RawUI.WindowTitle='Nazar web'; & '$py' -m http.server 3000"
+}
+$envFile = Join-Path $root ".env"
+if ((Test-Path $envFile) -and (Select-String -Path $envFile -Pattern '^TELEGRAM_BOT_TOKEN=.+' -Quiet)) {
+  Start-Process powershell -WorkingDirectory $backend -ArgumentList "-NoExit", "-Command", "`$host.UI.RawUI.WindowTitle='Nazar Telegram'; & '$py' -m nazar.telegram.run"
 }
 Write-Host ""
 Write-Host "Nazar is starting:  http://localhost:3000   (passcode from .env DEMO_PASSCODE, default nazar2026)"

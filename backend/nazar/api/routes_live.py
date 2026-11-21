@@ -51,9 +51,13 @@ def snapshot(camera_id: str):
 
 
 @router.get("/cameras/{camera_id}/live.mjpg")
-async def mjpeg(camera_id: str, request: Request, fps: float = 5.0):
+async def mjpeg(camera_id: str, request: Request, fps: float = 5.0, overlay: bool = False):
     camera_or_404(camera_id)
     path = storage.local_path(f"live/{camera_id}.jpg")
+    if overlay:  # face-blurred frame with tracker boxes/ids/counts (written by live edges)
+        ov = storage.local_path(f"live/{camera_id}_view.jpg")
+        if ov.exists() and time.time() - ov.stat().st_mtime < 30:
+            path = ov
     interval = 1.0 / max(1.0, min(fps, 10.0))
 
     async def gen():

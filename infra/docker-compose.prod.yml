@@ -14,6 +14,8 @@ x-backend: &backend
     MEDIAMTX_HOST: mediamtx
     MAX_EDGES: "3"
     ALLOW_LAN_CAMERAS: "false"
+    VISION_URL: http://vision:8010
+    VISION_BIND: 0.0.0.0
   volumes:
     - nazar-data:/data
     - nazar-models:/app/backend/models
@@ -40,6 +42,14 @@ services:
     expose: ["8000"]
     depends_on: [mediamtx]
 
+  vision:  # SigLIP 2 visual index on CPU (local, no AI cost); the API reaches it at http://vision:8010
+    <<: *backend
+    command: ["python", "-m", "nazar.vision.service"]
+    expose: ["8010"]
+  telegram:  # exits cleanly when TELEGRAM_BOT_TOKEN is empty
+    <<: *backend
+    command: ["python", "-m", "nazar.telegram.run"]
+    restart: on-failure
   worker:
     <<: *backend
     command: ["python", "-m", "nazar.worker.run"]

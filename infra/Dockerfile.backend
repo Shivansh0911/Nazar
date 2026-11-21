@@ -1,4 +1,4 @@
-# One CPU image for api, worker and edge (different commands). No GPU on AWS.
+# One CPU image for api, worker, edge, vision service and Telegram bot (different commands). No GPU on AWS.
 #   docker build -f infra/Dockerfile.backend -t nazar-backend .
 FROM python:3.12-slim
 
@@ -6,14 +6,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 \
     PIP_DEFAULT_TIMEOUT=120 PIP_RETRIES=10 \
     DATA_DIR=/data YOLO_CONFIG_DIR=/tmp/ultralytics
 
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg libgl1 libglib2.0-0 curl \
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg libgl1 libglib2.0-0 curl fonts-noto-core \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 # CPU torch first (never a CUDA build on the server), then everything else
 RUN pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 COPY backend/requirements.txt backend/requirements.txt
-RUN pip install -r backend/requirements.txt && pip install "openvino>=2024.4"
+RUN pip install -r backend/requirements.txt && pip install "openvino>=2024.4" "playwright==1.49.1" \n    && python -m playwright install --with-deps chromium   # incident PDFs (Devanagari shaping)
 
 COPY backend backend
 COPY scripts scripts

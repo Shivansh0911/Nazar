@@ -71,7 +71,18 @@ class FaceBlurrer:
         reuse=True: when not detecting on this frame, blur the previous frame's faces (padded more)."""
         img = frame if inplace else frame.copy()
         h, w = img.shape[:2]
-        faces = self.detect(img) if detect else (self.faces if reuse else [])
+        if detect and max(h, w) < 400:
+            # small crops: faces are tiny - detect on a 2x upscale with a lower threshold (privacy errs on blurring)
+            big = cv2.resize(img, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
+            faces = self.detect(big)
+            if self.det is not None:
+                try:
+                    self.det.setScoreThreshold(0.45)
+                    faces = self.detect(big)
+                finally:
+                    self.det.setScoreThreshold(0.6)
+        else:
+            faces = self.detect(img) if detect else (self.faces if reuse else [])
         pad = 0.3 if detect else 0.5
         for fx1, fy1, fx2, fy2 in faces:
             pw, ph = (fx2 - fx1) * pad, (fy2 - fy1) * pad

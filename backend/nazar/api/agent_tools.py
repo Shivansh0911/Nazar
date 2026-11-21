@@ -285,7 +285,10 @@ def camera_gaps(p: dict) -> dict:
         gaps.append((cur, min(t_to, datetime.now(timezone.utc))))
     out = [{"from": to_local(a).isoformat(), "to": to_local(b).isoformat(),
             "minutes": round((b - a).total_seconds() / 60, 1)} for a, b in gaps if b > a]
-    return {"camera_id": cam, "gaps": out, "offline_minutes": round(sum(g["minutes"] for g in out), 1)}
+    footage = [{"from": to_local(max(t_from, s["t_start"])).isoformat(), "to": to_local(min(t_to, s["t_end"])).isoformat()}
+               for s in segs if s["t_end"] > t_from and s["t_start"] < t_to][:20]
+    return {"camera_id": cam, "footage": footage, "gaps": out, "offline_minutes": round(sum(g["minutes"] for g in out), 1),
+            "note": "footage = times the camera WAS recording; gaps = times with no footage"}
 
 
 def coverage(camera_id: str | None = None) -> list[dict]:

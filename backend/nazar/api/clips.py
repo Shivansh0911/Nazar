@@ -105,7 +105,7 @@ class HeadIndex:
         x1, y1, x2, y2 = p[1:5]
         h = y2 - y1
         pw = (x2 - x1) * 0.05
-        return (x1 - pw, y1 - 0.02 * h, x2 + pw, y1 + 0.2 * h)
+        return (x1 - pw, y1 - 0.02 * h, x2 + pw, y1 + 0.3 * h)
 
     def at(self, t_ms: int, tol_ms: int = 450) -> list[tuple[float, float, float, float]]:
         out = []
@@ -256,7 +256,7 @@ def reel(items: list[dict], total: int | None = None, max_s: float = 60.0, each_
                     if not pieces:
                         continue
                     used += 1
-                    label = f"{k}/{total} · {to_local(it['t']):%H:%M}"
+                    label = f"{k}/{total} - {to_local(it["t"]):%H:%M}"
                     for _, img in _blurred_frames(it["camera_id"], pieces):
                         if enc is None:
                             enc = _Encoder(path, img.shape[1], img.shape[0])

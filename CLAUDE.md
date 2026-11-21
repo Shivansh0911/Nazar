@@ -3,6 +3,8 @@
 Hackathon project (Builders 2026, Equal AI × OpenAI). Solo build. **Code freeze: Sunday 22 Nov 2026, 2:00 PM IST.**
 Speed matters more than polish. Working end-to-end beats perfect parts. Ship each phase working before starting the next.
 
+> **v2 (BUILD_PROMPT_V2.md) is the current spec** and wins over v1 on conflicts. Resume from PROGRESS.md (v2 section).
+
 ## What we are building
 Any camera (phone stream, shop DVR over RTSP, or a video file) becomes something you can talk to:
 1. **Ask:** owner sends a voice note in Hindi/English/Hinglish ("Raat 2 baje ke baad counter pe kitne log aaye?") → answer + count + exact clips, each with an evidence level.
@@ -11,14 +13,17 @@ Any camera (phone stream, shop DVR over RTSP, or a video file) becomes something
 
 Design lineage: the author's previous project SETU (vehicle search without number plates). Same ideas: edge detection, appearance fingerprints, pgvector search, honest evidence levels, "replay first".
 
-## Architecture
+## Architecture (v2)
 ```
-camera/file → edge (5 fps, motion gate, YOLO11n + ByteTrack, 5 Hz paths, face blur, crops, 10s segments)
-            → Postgres+pgvector (tracks with paths, segments) → worker eventizer derives zone events
-            → enricher (OpenAI vision on crops → caption + attributes JSON → embedding)
-owner app (voice note) → transcribe → query agent (tools: search_tracks, count_events, get_clips, create_rule)
-            → answer card + clips + TTS voice reply
-watch rules → replay over stored events → live check on new events → optional vision confirm → alert (WebSocket + TTS)
+file  → ffmpeg samples 5 fps → batched GPU YOLO11s → ordered ByteTrack → 5 Hz paths (+ head boxes) ┐ no re-encode:
+live  → OpenCV decode → same detector/tracker (+ YOLOE for taught objects) → blurred 10 s segments ┘ originals kept
+      → crops (blurred at cut + YuNet) + keyframes every 2 s (blurred) → Postgres + pgvector
+vision service (SigLIP 2, GPU) → indexes crops + keyframes locally (Rs 0) → visual search / photo search / journey
+worker → eventizer (zones + count lines) → rules/alerts → stitcher → security detectors (+ Flex AI check) → digest
+agent (luna first, sol on escalation, SSE streaming) → tools: count_events (receipts), analytics_query (read-only
+      views), visual_search (+AI verify), journey, describe_clip, look_now, compare, heatmap, list_events,
+      create_rule, teach_object (YOLOE), make_report (PDF) → answer + evidence panel + TTS
+Telegram bot (long polling) → same agent; alerts pushed with snapshot + clip + voice note
 ```
 
 ## Repo layout
@@ -68,10 +73,19 @@ AWS keys are temporary workshop credentials and expire; on an auth error, tell t
 All timestamps are real wall-clock (timestamptz). For files, wall clock = configured start time + PTS. Never derive time from a declared fps.
 
 ## Hard rules
-1. **Counts come from SQL over `events`, never from a model.**
-2. **Evidence levels:** Confirmed = tracker fact (zone entry, count, timestamp). Probable = caption similarity AND attribute match agree. Candidate = similarity only. A Candidate is never presented as an answer and never styled like Confirmed. If nothing matches, say so and list hours the camera was offline.
-3. **Privacy:** blur faces BEFORE any crop/segment is written or sent anywhere. Never send full frames or video to OpenAI, only track crops (max 3 per track). No face recognition, ever.
-4. **Cost:** cache: never re-enrich a track. Batch enrichment. Log cost per call in `usage`. Show cost per camera-day in the UI.
+1. **Counts come from SQL, never from a model — and every count carries its receipts** (the counted tracks).
+   "People seen" = root tracks >= 1.5 s with max confidence >= 0.6. Line crossings count entrances.
+2. **Evidence levels (decided only in server code):** Confirmed = tracker/database fact. Probable = local similarity
+   AND an independent check agree (attributes, or a RECORDED AI verification "yes"). Candidate = similarity or a
+   heuristic only. A Candidate is never presented as an answer and never styled like Confirmed. If nothing matches, say so and list hours the camera was offline.
+3. **Privacy (v2: blur at egress):** raw originals stay on the owner's machine and are never served or sent.
+   Everything that leaves the pipeline (crops, keyframes, clips, live view, snapshots, PDFs, Telegram media) is
+   face-blurred when it is produced (stored head boxes + YuNet). OpenAI sees only blurred crops / a few blurred
+   keyframes (detail low) and the owner's questions. No face recognition, ever: photo search compares clothes,
+   objects and vehicles; a face-only photo is refused; every photo search is audited with its purpose.
+4. **Cost:** indexing is local (YOLO + SigLIP 2, Rs 0). Captions are on demand (`ENRICH_MODE=smart`), background
+   vision uses the Flex tier with fallback. Every call writes a `usage` row (incl. `service_tier`). The UI shows
+   measured unit costs (per question / verification / report / caption).
 5. All LLM outputs that drive code use Structured Outputs (JSON schema) + Pydantic validation. Rule specs are validated before saving.
 6. **AWS guardrails:** never launch GPU instances (g*, p*, inf*, trn*), never use Bedrock, never create more than one EC2 instance, never run an AWS command that creates/deletes resources without showing it to the user and getting a yes. Prefer giving the user console steps.
 7. Never commit `.env`, keys, samples > 50 MB, or `data/`.
@@ -89,6 +103,8 @@ Flow: compile (LLM) → validate → show human-readable card → replay last 24
 `object_removed`: a stationary object track disappears from a zone while a person track overlaps it. If unreliable, fall back to zone_exit + vision confirm.
 
 ## Machine notes
+- v2: transformers must stay < 4.52 (torch 2.5.1+cu121). SigLIP 2 runs in `python -m nazar.vision.service` (:8010).
+- v2: the vision service uses ~2.8 GB private memory while loaded; it unloads after 3 idle minutes.
 - `DATA_DIR` on this laptop is outside OneDrive (`C:/Users/ssojh/AppData/Local/Nazar/data`).
 - OpenCV must stay < 5 (YuNet is ~5x slower on 5.x); Tailwind pinned to 4.1.11 (Node 20.14).
 - 8 GB RAM: run at most one or two edges at once.
