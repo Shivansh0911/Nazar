@@ -1,5 +1,7 @@
 # Nazar live ingest: phones push SRT/RTMP, DVRs/ffmpeg push RTSP; edges read RTSP.
-# HLS/WebRTC are off - the API serves its own face-blurred MJPEG.
+# v2: live edges publish a FACE-BLURRED view with the tracker overlay to <camera>_view; browsers play it over WebRTC
+# (WHEP, :8889 + ICE UDP :8189). Browsers may read ONLY *_view paths - raw camera paths are readable only from the
+# local machine / Docker network (where the edges run).
 logLevel: info
 rtsp: yes
 rtspAddress: :8554
@@ -9,10 +11,33 @@ rtmpAddress: :1935
 srt: yes
 srtAddress: :8890
 hls: no
-webrtc: no
+webrtc: yes
+webrtcAddress: :8889
+webrtcLocalUDPAddress: :8189
+webrtcAllowOrigins: ["*"]
+webrtcIPsFromInterfaces: no
+webrtcAdditionalHosts: [127.0.0.1]
 api: no
 metrics: no
 playback: no
+
+authMethod: internal
+authInternalUsers:
+  # anyone (phones, DVR pushers) may publish, and may read only the blurred *_view streams
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: publish
+      - action: read
+        path: ~_view$
+  # edges on this machine / inside the Docker network read the raw streams
+  - user: any
+    pass:
+    ips: ["127.0.0.1/32", "::1/128", "172.16.0.0/12", "192.168.65.0/24"]
+    permissions:
+      - action: read
+      - action: publish
 
 pathDefaults:
   # Raw recording is OFF unless RECORD_RAW=1 (compose sets MTX_PATHDEFAULTS_RECORD=yes).

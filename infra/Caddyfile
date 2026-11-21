@@ -1,4 +1,4 @@
-# HTTPS without buying a domain: DOMAIN=<EC2-public-IP-with-dashes>.sslip.io (e.g. 34-210-12-7.sslip.io)
+﻿# HTTPS without buying a domain: DOMAIN=<EC2-public-IP-with-dashes>.sslip.io (e.g. 34-210-12-7.sslip.io)
 {$DOMAIN} {
 	encode gzip
 
@@ -8,6 +8,11 @@
 		reverse_proxy api:8000 {
 			flush_interval -1
 		}
+	}
+
+	# WebRTC (WHEP) for the face-blurred *_view streams; MediaMTX itself only lets browsers read *_view paths
+	handle_path /webrtc/* {
+		reverse_proxy mediamtx:8889
 	}
 
 	handle {

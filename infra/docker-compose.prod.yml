@@ -1,4 +1,4 @@
-# Production on ONE CPU EC2 instance (see infra/DEPLOY.md). Web is a static export on Amplify.
+﻿# Production on ONE CPU EC2 instance (see infra/DEPLOY.md). Web is a static export on Amplify.
 #   docker compose -f infra/docker-compose.prod.yml up -d --build
 #   docker compose -f infra/docker-compose.prod.yml --profile db up -d --build   # with a local Postgres instead of RDS
 name: nazar-prod
@@ -27,7 +27,9 @@ services:
     ports:
       - "8890:8890/udp"   # SRT from phones (Larix)
       - "1935:1935/tcp"   # RTMP from phones / encoders
+      - "8189:8189/udp"   # WebRTC ICE for the blurred *_view live streams (WHEP goes through Caddy /webrtc/*)
     environment:
+      MTX_WEBRTCADDITIONALHOSTS: ${PUBLIC_HOST:-127.0.0.1}   # the EC2 public IP so browsers reach ICE UDP 8189
       MTX_PATHDEFAULTS_RECORD: ${RECORD_RAW_BOOL:-no}   # set RECORD_RAW_BOOL=yes for overnight raw recording
       MTX_PATHDEFAULTS_RECORDPATH: /data/recordings/%path/%Y-%m-%d_%H-%M-%S-%f
     volumes:

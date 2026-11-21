@@ -165,6 +165,9 @@ and its rule fires 4.6 s after it appears. Security events on the demo data: the
 *object taken* and AI-verified to **Probable**; the abandoned-bag heuristic fires but stays a *Candidate* (the AI saw
 a person next to the bag).
 
+**Live view** — `cd web; node ../scripts/webrtc_check.mjs`: the Live page plays the blurred view over WebRTC; the
+wall-clock stamp burned into the frame was < 0.5 s behind the screenshot time. Live detection: 2.3 fps under load.
+
 **Memory** (W1.9): vision service 2.8 GB private while SigLIP 2 is loaded (released after 3 idle minutes), one edge
 0.5–1.6 GB, API 0.4 GB, worker 0.45 GB, Postgres 0.1 GB. With Docker, VS Code and a browser this 8 GB laptop had
 ~0.6 GB free — under the 1 GB goal; 16 GB is comfortable.
@@ -209,8 +212,10 @@ No GPU instances, no Bedrock, one instance. Click-by-click: [infra/DEPLOY.md](in
   in the final model round.
 - **Dense scenes:** 8.9× real time (not 15×) on rush-hour footage; counts there are an upper bound (riders count as
   people, partly hidden people are re-detected).
-- **Not done in v2:** WebRTC low-latency live view (the live wall uses the face-blurred MJPEG with tracker boxes
-  drawn in), the realtime "Call Nazar" voice mode, photo prompts for YOLOE (text prompts work), MOT17/snatch-dataset
+- **Live view:** WebRTC (WHEP via MediaMTX) of the face-blurred stream with the tracker overlay burned in;
+  glass-to-glass under ~0.5 s on this laptop, but live detection ran at only 2.3 fps while other services competed
+  for the CPU (goal 10 fps). Boxes are drawn into the stream, not on a client canvas.
+- **Not done in v2:** the realtime "Call Nazar" voice mode, photo prompts for YOLOE (text prompts work), MOT17/snatch-dataset
   evaluation (multi-GB downloads), ANPR.
 - **Heuristic security events** (running, fall, snatch, loitering) are Candidates until verified; they were checked
   on the demo clips, not on a labelled dataset.

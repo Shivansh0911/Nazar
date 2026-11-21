@@ -1,4 +1,4 @@
-name: nazar
+﻿name: nazar
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -22,6 +22,8 @@ services:
       - "8554:8554/tcp"
       - "1935:1935/tcp"
       - "8890:8890/udp"
+      - "8889:8889/tcp"   # WebRTC (WHEP) for the blurred *_view streams
+      - "8189:8189/udp"   # WebRTC ICE
     environment:
       MTX_PATHDEFAULTS_RECORD: ${RECORD_RAW_BOOL:-no}
     volumes:

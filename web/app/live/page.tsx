@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Maximize2, Play, Radio, Square } from "lucide-react";
-import { api, mjpegUrl, snapshotUrl } from "@/lib/api";
+import { api, snapshotUrl } from "@/lib/api";
 import { fmtDayTime } from "@/lib/format";
+import { LivePlayer } from "@/components/LivePlayer";
 import { Btn, Empty, Page } from "@/components/ui";
 import { useApp } from "@/components/Providers";
 
@@ -39,8 +40,7 @@ export default function LivePage() {
           {live.filter((c) => !big || c.id === big).map((c) => (
             <div key={c.id} className="overflow-hidden rounded-3xl border border-line bg-surface">
               <div className="relative aspect-video bg-black">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={c.live ? `${mjpegUrl(c.id)}&overlay=1` : snapshotUrl(c.id)} alt={c.name} className="h-full w-full object-contain" />
+                <LivePlayer cameraId={c.id} live={c.live} />
                 <span className="absolute left-2 top-2 rounded-full bg-danger px-2 py-0.5 text-[10px] font-semibold text-white"><span className="live-dot">●</span> {c.live ? "LIVE" : "STARTING"}</span>
                 <button onClick={() => setBig(big ? null : c.id)} className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-white" aria-label="Enlarge"><Maximize2 size={14} /></button>
               </div>

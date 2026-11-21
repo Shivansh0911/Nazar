@@ -5,7 +5,7 @@ then continue from **Exact next step** in the v2 section at the end.
 
 ## Current status
 - **v2 build (22 Nov 2026):** W1, W2, W3, W5, W6, W8, W9, W11, W13, W14 done; W4 done (text prompts); W12 partly;
-  W10 and W7 not done (see "v2" at the end).
+  W10 done (WebRTC, fps below goal); W7 not done (see "v2" at the end).
 - **Exact next step:** see "v2 — exact next step" at the end of this file.
 
 ## Environment notes (discovered, do not re-discover)
@@ -245,7 +245,7 @@ the next session; this build used the Playwright npm package (`scripts/shots_v2.
 | W7 realtime voice | ❌ not done | P2, no time |
 | W8 Telegram | ✅ code, pairing needs the user | text/voice/photo in; text + OGG voice + clips + chart out; alert push; digest |
 | W9 onboarding | ✅ | resumable 8 MB parts, no re-encode, live analysis view, CCTV builder + Test connection, Excel/CSV import, ONVIF discovery, first-run wizard, hackathon clip as "Builders venue" |
-| W10 WebRTC live view | ❌ not done | live wall uses the face-blurred MJPEG (v1); WHEP + overlay left for later |
+| W10 WebRTC live view | ✅ (fps below goal) | live edges publish the blurred view + burned-in overlay to MediaMTX `<camera>_view`; web plays WHEP with MJPEG fallback; browsers may read only `*_view`; glass-to-glass < ~0.5 s; live detection 2.3 fps under load (goal 10) |
 | W11 UI | ✅ | dark-first night-watch design, side rail + bottom tabs, every screen redesigned, screenshots at 390/1440 both themes |
 | W12 data/eval | partly | hand counts (3 windows), tracker comparison, agent battery, language round-trip; MOT17/snatch datasets not downloaded (multi-GB) |
 | W13 cost truth | ✅ | unit costs measured from `usage`; Flex tier with fallback; projection calculator |
@@ -269,5 +269,5 @@ the next session; this build used the Playwright npm package (`scripts/shots_v2.
 
 ## v2 — exact next step
 Feature work is frozen. If resuming: (1) pair Telegram from Settings and verify a voice-note question + an alert
-arrive (FINAL_STEPS §4); (2) optional P1 left: WebRTC live view (W10), YOLOE photo prompts, MOT17 eval; (3) deploy per
+arrive (FINAL_STEPS §4); (2) optional P1 left: YOLOE photo prompts, MOT17 eval, 10 fps live detection under load; (3) deploy per
 infra/DEPLOY.md only with the user's explicit yes for every AWS resource.

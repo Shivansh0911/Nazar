@@ -78,7 +78,7 @@ never GPU instances, never Bedrock.
 | Answer latency | p50 8.8 s full, first words 7.0 s (targets 5 s / 2.5 s not met) | Insights → Answer speed; `eval_battery.py` |
 | Dense footage speed | 8.9× real time on rush-hour footage (17.7× on the venue clip); goal 15× | `bench_pipeline.py` |
 | Counting over-count | riders and half-hidden people add tracks (venue 5 vs 3, shop 4 vs 3) | `eval_counts.py` |
-| W10 WebRTC live view | **not done** — live wall uses the face-blurred MJPEG with tracker boxes | Live page |
+| W10 live view | WebRTC works (< ~0.5 s glass-to-glass); live detection ran 2.3 fps under load (goal 10); boxes are burned into the stream | `cd web; node ../scripts/webrtc_check.mjs` |
 | W7 "Call Nazar" realtime voice | **not done** (P2) | — |
 | YOLOE photo prompts | not done (text prompts work) | Camera page → Teach |
 | MOT17 / snatch datasets | **not downloaded** (multi-GB); evaluation uses hand counts + demo clips | `eval_counts.py` |

@@ -1,4 +1,4 @@
-"""Edge process (one per camera):  python -m nazar.edge.run --camera <id> [--source ...]
+﻿"""Edge process (one per camera):  python -m nazar.edge.run --camera <id> [--source ...]
 
 decode -> sample -> motion gate -> YOLO + ByteTrack -> 5 Hz paths -> face-blurred crops/segments/snapshot -> Postgres
 """
@@ -155,6 +155,8 @@ def main(argv=None) -> int:
 
     run_id = f"{datetime.now(timezone.utc):%Y%m%dT%H%M%S}-{uuid.uuid4().hex[:6]}"
     det_interval = 1.0 / s.DETECT_FPS
+    if kind != "file" or args.simulate_live:
+        det_interval = 1.0 / max(s.DETECT_FPS, 10.0)  # live cameras: 10 detection fps for a smooth overlay
     seg_interval = 1.0 / s.SEGMENT_FPS
     hb = Heartbeat(args.camera, args.job)
 
@@ -179,6 +181,11 @@ def main(argv=None) -> int:
         from .filerun import AnalysisView
 
         overlay = AnalysisView(args.camera, zones, suffix="_view")
+    view = None
+    if src.live or args.simulate_live:
+        from .view import ViewPublisher
+
+        view = ViewPublisher(args.camera, fps=s.SEGMENT_FPS)  # blurred view + overlay -> MediaMTX (WebRTC)
     ov = None
     if src.live or args.simulate_live:  # YOLOE loads only once the camera has an active custom object
         from ..api.teach import OpenVocab
@@ -252,6 +259,12 @@ def main(argv=None) -> int:
             else:
                 blurred = blur.apply(img)
             segs.write(blurred, t)
+            if view is not None:
+                from .view import annotate
+
+                n_people = sum(1 for d in last_dets if d.cls == "person")
+                view.write(annotate(blurred, last_dets, zones, stamp=datetime.now(timezone.utc),
+                                    counts={"people now": n_people}))
             hb.tick(t, True, len(tracks.active), processed_s=pos, duration_s=src.duration_s)
     except Exception as e:
         log.exception("edge crashed: %s", e)
@@ -261,6 +274,8 @@ def main(argv=None) -> int:
     finally:
         tracks.finalize_all()
         segs.close()
+        if view is not None:
+            view.close()
         if preview:
             preview.close()
         hb.tick(t, False, 0, "stopped", force=True, processed_s=pos, duration_s=src.duration_s)
