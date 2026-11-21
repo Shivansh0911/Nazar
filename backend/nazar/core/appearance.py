@@ -59,6 +59,15 @@ def fingerprint(crop_bgr: np.ndarray, cls: str = "person") -> np.ndarray:
     return v / n if n > 0 else v
 
 
+def as_list(v) -> list[float] | None:
+    """pgvector returns Vector objects (pgvector>=0.3); accept lists/arrays too."""
+    if v is None:
+        return None
+    if hasattr(v, "to_list"):
+        return list(v.to_list())
+    return [float(x) for x in v]
+
+
 def cosine(a, b) -> float:
     a = np.asarray(a, np.float32)
     b = np.asarray(b, np.float32)

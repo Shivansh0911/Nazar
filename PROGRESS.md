@@ -3,7 +3,7 @@
 Spec: `BUILD_PROMPT.md` (source of truth). Resume by reading this file, then continue from **Exact next step**.
 
 ## Current status
-- **Current milestone:** M3 (worker)
+- **Current milestone:** M6 (web app) — M5 code written, live AI calls need the key
 - **Exact next step:** see the last milestone entry below.
 
 ## Environment notes (discovered, do not re-discover)
@@ -18,6 +18,10 @@ Spec: `BUILD_PROMPT.md` (source of truth). Resume by reading this file, then con
 - **DATA_DIR is outside OneDrive** on this machine (`C:/Users/ssojh/AppData/Local/Nazar/data`, set in `.env`) so
   footage doesn't sync to the cloud. `data/inspect/` in the repo is only used for self-review images.
 - **OpenCV must be < 5**: OpenCV 5.1's DNN engine runs YuNet ~5x slower (99 ms vs 20 ms at 640 px).
+- **Memory:** this laptop has 8 GB and other apps (SETU containers, VS Code, browsers) leave little free. The Docker
+  VM page cache can be dropped safely: `wsl -d docker-desktop -u root sh -c "sync; echo 3 > /proc/sys/vm/drop_caches"`.
+  Under pressure an edge needs ~30-40 s to load; two edges at once slow to a crawl.
+- pgvector 0.5 returns `Vector` objects → use `nazar.core.appearance.as_list()`.
 - ultralytics 8.4 deprecates `half=True` → use `quantize=16`.
 - Pexels pages occasionally return 403 to scripted requests; `fetch_samples.py` prints the pages to fetch manually.
 
@@ -75,3 +79,27 @@ timestamps 22:30 IST as requested, segments contiguous 0–32.1 s.
 video10 (bag put on a desk, detected as suitcase in every sample) + its tail reversed (pickup). On real tracks the
 `object_removed` rule fires once with the correct actor (person track beside the desk). CAVIAR kept as an extra.
 **Next:** M3 worker (eventize loop, rules loop, alerts, enricher, retention) + `demo_setup.py`.
+
+## M3 — Worker ✅ (2026-11-21)
+**Built:** `nazar/worker/` eventize loop (cursor + overlap, re-eventize a camera's 7 days when its zones hash changes),
+rules loop (per-track evaluation + 1 s count_over tick, only hits after `activated_at`), alerts (message in the rule's
+language, snapshot, optional vision confirm → suppressed, pg_notify, TTS), stitcher, enricher (3 crops → TrackCaption →
+batched embeddings, daily cap, 3 attempts), retention, jobs → ready, liveness marker. Shared `core/replay.py`.
+Migration 003 (rules.language/activated_at, alerts.camera_id/meta). `scripts/demo_setup.py` builds the dataset.
+**Verified:** demo_setup: 13 clip runs → 6 cameras, 602 tracks, events for all default zones; shrinking a zone
+re-eventized (64 → 48 counter events) and restoring gave 64; stitcher merged 3 real tracks; an active
+object_removed rule produced alert #1 "Desk 14 se bag uthaya gaya — raat 9:51" with actor track + snapshot.
+Edge finalize moved to a writer thread: crowded clip2 0.49× → 1.27× real time.
+**Needs the key:** enrichment (captions/embeddings), alert TTS audio, vision confirm.
+
+## M4 — API ✅ (2026-11-21)
+**Built:** FastAPI app (`nazar/api/`): passcode → HMAC token (header or `?token=`), cameras CRUD with SSRF-safe source
+validation (`core/security.py`, `ALLOW_LAN_CAMERAS`), snapshot, MJPEG, suggest-zones, timeline, gaps (from stored
+segments), upload (probe, ≤ 2 GB / ≤ 60 min, downscale > 1280 px, rotation), progress, edge manager (MAX_EDGES queue,
+restart live edges with backoff, logs), search/count debug, tracks, find-again (appearance pgvector), clips (concat +
+cache + path for canvas overlay), rules, alerts, WS (LISTEN thread + status pusher), metrics, /media.
+**Verified:** `pytest tests/test_api_smoke.py` 8 passed against demo data (auth, timeline sum = value, count = SQL,
+structural search = confirmed, crops served, clip mp4 served, snapshot, metrics, 503 without key, source validation);
+live: uploaded `extra_mall.mp4` → ready in ~40 s with 43 tracks; 4K upload normalized to 1280 px (0 tracks:
+top-down stairs); portrait 540×960 → 27 tracks; start/stop edge via API; MJPEG 14 frames / 4 s.
+**Next:** M6 web app (M5 agent/voice/compiler code + fake-client tests already done; live calls need the key).

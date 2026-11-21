@@ -11,7 +11,7 @@ import time
 from datetime import timedelta
 
 from ..core import db
-from ..core.appearance import cosine
+from ..core.appearance import as_list, cosine
 from ..core.geometry import box_distance
 
 log = logging.getLogger("nazar.stitcher")
@@ -88,7 +88,7 @@ def run_once(lookback_minutes: int = 30) -> int:
     )
     by_cam: dict[str, list[dict]] = {}
     for r in rows:
-        r["appearance"] = list(r["appearance"]) if r["appearance"] is not None else None
+        r["appearance"] = as_list(r["appearance"])
         by_cam.setdefault(r["camera_id"], []).append(r)
     n = 0
     for cam, ts in by_cam.items():

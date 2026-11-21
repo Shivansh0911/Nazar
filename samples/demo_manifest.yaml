@@ -5,6 +5,9 @@
 cameras:
   - id: shop-counter
     name: "Shop counter"
+    zones:
+      - {name: counter, label: "Counter", polygon: [[0.12, 0.30], [0.88, 0.30], [0.88, 0.62], [0.12, 0.62]]}
+      - {name: road, label: "Road", polygon: [[0.0, 0.14], [1.0, 0.14], [1.0, 0.30], [0.0, 0.30]]}
     clips:
       - {file: samples/clip1.mp4, start: "yesterday 18:30"}
       - {file: samples/clip1.mp4, start: "yesterday 19:40"}
@@ -12,26 +15,40 @@ cameras:
       - {file: samples/clip1.mp4, start: "today 09:15"}
   - id: market-street
     name: "Market street"
+    zones:
+      - {name: footpath, label: "Footpath", polygon: [[0.0, 0.40], [0.22, 0.40], [0.12, 1.0], [0.0, 1.0]]}
+      - {name: road, label: "Road", polygon: [[0.22, 0.30], [0.75, 0.30], [0.95, 1.0], [0.12, 1.0]]}
     clips:
       - {file: samples/clip2.mp4, start: "yesterday 20:30"}
       - {file: samples/clip2.mp4, start: "today 08:05"}
   - id: main-road
     name: "Main road"
+    zones:
+      - {name: road, label: "Road", polygon: [[0.0, 0.45], [1.0, 0.45], [1.0, 1.0], [0.0, 1.0]]}
+      - {name: shop_front, label: "Shop front", polygon: [[0.55, 0.28], [1.0, 0.28], [1.0, 0.50], [0.55, 0.50]]}
     clips:
       - {file: samples/clip3.mp4, start: "yesterday 23:15"}
       - {file: samples/clip3.mp4, start: "today 07:40"}
   - id: lobby
     name: "Lobby"
+    zones:
+      - {name: entrance, label: "Entrance", polygon: [[0.25, 0.62], [0.75, 0.62], [0.75, 0.80], [0.25, 0.80]]}
+      - {name: floor, label: "Floor", polygon: [[0.0, 0.80], [1.0, 0.80], [1.0, 1.0], [0.0, 1.0]]}
     clips:
       - {file: samples/clip4.mp4, start: "yesterday 17:20"}
       - {file: samples/clip4.mp4, start: "today 08:30"}
   - id: night-market
     name: "Night stall"
+    zones:
+      - {name: counter, label: "Counter", polygon: [[0.0, 0.45], [0.70, 0.45], [0.70, 1.0], [0.0, 1.0]]}
     clips:
       - {file: samples/clip5.mp4, start: "yesterday 22:40"}
       - {file: samples/clip5.mp4, start: "today 02:05"}
   - id: office-desk
     name: "Office desk"
+    zones:
+      - {name: desk_14, label: "Desk 14", polygon: [[0.06, 0.27], [0.47, 0.27], [0.47, 0.63], [0.06, 0.63]]}
+      - {name: aisle, label: "Aisle", polygon: [[0.0, 0.55], [0.6, 0.55], [0.6, 1.0], [0.0, 1.0]]}
     settings: {upscale: 2, detect_imgsz: 960, detect_conf: 0.2}
     clips:
       - {file: samples/clip6_bag.mp4, start: "yesterday 21:50"}

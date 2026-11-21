@@ -59,6 +59,8 @@ class Settings(BaseSettings):
     LEVEL_PROBABLE_SIM: float = 0.35
     LEVEL_CANDIDATE_SIM: float = 0.25
     MEDIAMTX_HOST: str = "localhost"
+    ALLOW_LAN_CAMERAS: bool = True  # shop DVRs live on 192.168.x.x; set false on a public server
+    PUBLIC_HOST: str = ""  # host/IP phones use to reach MediaMTX (Add camera -> Phone); default = API host
     FFMPEG_DIR: str = ""
     RECORD_RAW: int = 0
     DOMAIN: str = ""

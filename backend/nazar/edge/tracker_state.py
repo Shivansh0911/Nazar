@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 import logging
+import queue
+import threading
 import time
 from collections import Counter
 from dataclasses import dataclass, field
@@ -64,6 +66,11 @@ class TrackManager:
         self.stats = Counter()
         # ByteTrack may revive a lost id after we finalized it; give the revived track a new DB local_id
         self._generation: Counter = Counter()
+        # finalize (crop encode + writes + DB) runs on a writer thread so crowded scenes don't stall decoding
+        self._lock = threading.Lock()
+        self._q: "queue.Queue[TrackState | None]" = queue.Queue()
+        self._writer = threading.Thread(target=self._write_loop, name="track-writer", daemon=True)
+        self._writer.start()
 
     # ---- updates -------------------------------------------------------------------
     def update(self, dets: list[Det], blurred: np.ndarray, t: datetime) -> None:
@@ -97,7 +104,23 @@ class TrackManager:
     def finalize_all(self) -> None:
         for k in list(self.active):
             self._finalize(self.active.pop(k))
+        self._q.join()
         self._retry_pending(force=True)
+        self._q.put(None)
+
+    def _write_loop(self) -> None:
+        while True:
+            st = self._q.get()
+            try:
+                if st is None:
+                    return
+                if not self._write_final(st):
+                    with self._lock:
+                        self.pending_final.append((time.monotonic(), st))
+            except Exception as e:
+                log.error("track writer error: %s", e)
+            finally:
+                self._q.task_done()
 
     # ---- DB --------------------------------------------------------------------------
     def _row(self, st: TrackState, active: bool) -> tuple:
@@ -126,8 +149,7 @@ class TrackManager:
                 except Exception:
                     pass
             return
-        if not self._write_final(st):
-            self.pending_final.append((time.monotonic(), st))
+        self._q.put(st)
 
     def _write_final(self, st: TrackState) -> bool:
         try:
@@ -158,11 +180,13 @@ class TrackManager:
             return False
 
     def _retry_pending(self, force: bool = False) -> None:
-        if not self.pending_final:
-            return
+        with self._lock:
+            if not self.pending_final:
+                return
+            items, self.pending_final = self.pending_final, []
         keep = []
         now = time.monotonic()
-        for queued, st in self.pending_final:
+        for queued, st in items:
             if self._write_final(st):
                 continue
             if now - queued > DB_BUFFER_S and not force:
@@ -170,4 +194,6 @@ class TrackManager:
                 self.stats["dropped_db_down"] += 1
                 continue
             keep.append((queued, st))
-        self.pending_final = keep if not force else []
+        if not force:
+            with self._lock:
+                self.pending_final.extend(keep)
