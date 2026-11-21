@@ -182,8 +182,13 @@ def main(argv=None) -> int:
 
         overlay = AnalysisView(args.camera, zones, suffix="_view")
     view = None
+    kf_live = None
     if src.live or args.simulate_live:
+        from .filerun import KeyframeWriter
         from .view import ViewPublisher
+
+        tracks.early_crops_s = 20.0  # people who stay get indexed while still in view
+        kf_live = KeyframeWriter(args.camera)  # blurred keyframes every 2 s: live footage is searchable too
 
         view = ViewPublisher(args.camera, fps=s.SEGMENT_FPS)  # blurred view + overlay -> MediaMTX (WebRTC)
     ov = None
@@ -259,6 +264,11 @@ def main(argv=None) -> int:
             else:
                 blurred = blur.apply(img)
             segs.write(blurred, t)
+            if kf_live is not None and kf_live.due(t):
+                kf_live.last_t = t
+                heads = [d.head for d in last_dets if d.cls == "person"]
+                kf_live.write(blur.egress(blurred, heads, detect=False) if heads else blurred, t,
+                              sum(1 for d in last_dets if d.cls == "person"))
             if view is not None:
                 from .view import annotate
 

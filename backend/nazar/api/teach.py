@@ -59,7 +59,7 @@ class OpenVocab:
         if time.monotonic() - self.last_refresh < 10:
             return bool(self.objects)
         self.last_refresh = time.monotonic()
-        rows = db.fetch_all("SELECT id, name, prompt_text, threshold FROM custom_objects WHERE camera_id=%s AND active "
+        rows = db.fetch_all("SELECT id, name, prompt_text, threshold FROM custom_objects WHERE camera_id=%s AND active AND prompt_type='text' "
                             "ORDER BY id", (self.camera_id,))
         if [r["id"] for r in rows] != [o["id"] for o in self.objects]:
             self.objects = rows
@@ -184,3 +184,54 @@ def teach_from_text(camera_id: str, name: str, *, alert: bool = False, ref: str 
            + (" A rule is ready to activate." if rule else ""))
     return {"ok": True, "object_id": obj_id, "name": name, "camera_id": camera_id, "cls": f"custom:{slug(name)}",
             "replay": rep, "rule_id": rule, "message": msg}
+
+
+# ---- teach by photo (SigLIP 2 image prompt; local, Rs 0) -------------------------------------------------------------
+PHOTO_MATCH_SIM = 0.85  # floor of the adaptive image->image threshold (SigLIP 2)
+
+
+def teach_from_photo(camera_id: str, name: str, jpeg: bytes, image_key: str, *, alert: bool = False,
+                     threshold: float = PHOTO_MATCH_SIM) -> dict:
+    """Store the photo embedding as a custom object, replay it over the last day (Candidates), optionally add an
+    alert rule. Live matching runs in the worker (nazar.worker.visual_watch)."""
+    from datetime import timezone as _tz
+
+    from ..core.vision_client import embed_images, vec_literal
+    from . import visual
+
+    name = (name or "").strip()[:40] or "my object"
+    cam = db.fetch_one("SELECT id, name FROM cameras WHERE id=%s", (camera_id,))
+    if not cam:
+        return {"ok": False, "error": f"camera {camera_id} not found"}
+    vec = embed_images([jpeg])[0]
+    top = db.fetch_val("SELECT COALESCE(max(id), 0) FROM tracks WHERE camera_id=%s", (camera_id,))
+    # SigLIP image-image similarity is high for any CCTV crop (~0.81 median), so the threshold adapts: only matches
+    # above the 97.5th percentile of this photo's similarity to everything indexed so far count (min 0.85)
+    p99 = db.fetch_val("SELECT percentile_cont(0.975) WITHIN GROUP (ORDER BY 1 - (vis_emb <=> %s::halfvec)) FROM "
+                       "(SELECT vis_emb FROM tracks WHERE vis_emb IS NOT NULL ORDER BY id DESC LIMIT 5000) x", (vec_literal(vec),))
+    threshold = max(threshold, float(p99 or 0))
+    obj_id = db.fetch_one(
+        "INSERT INTO custom_objects(camera_id, name, prompt_type, prompt_image_key, prompt_emb, threshold, last_checked_id) "
+        "VALUES (%s,%s,'visual',%s,%s::halfvec,%s,%s) ON CONFLICT (camera_id, name) DO UPDATE SET prompt_type='visual', "
+        "prompt_image_key=EXCLUDED.prompt_image_key, prompt_emb=EXCLUDED.prompt_emb, threshold=EXCLUDED.threshold, "
+        "last_checked_id=EXCLUDED.last_checked_id, active=true RETURNING id",
+        (camera_id, name.lower(), image_key, vec_literal(vec), threshold, top))["id"]
+    now = datetime.now(_tz.utc)
+    hits = [h for h in visual.search(vec, t_from=now - timedelta(days=1), t_to=now, camera_ids=[camera_id], limit=12,
+                                     mode="photo") if h["sim"] >= threshold]
+    rule = None
+    if alert:
+        from psycopg.types.json import Jsonb
+
+        from ..core.rules import RuleSpec
+
+        spec = RuleSpec(camera_id=camera_id, trigger="zone_enter", cls=f"custom:{slug(name)}", zone="anywhere")
+        rule = db.fetch_one("INSERT INTO rules(camera_id, text, spec, human, active, language) VALUES (%s,%s,%s,%s,false,'en') "
+                            "RETURNING id", (camera_id, f"alert when my {name} is seen", Jsonb(spec.dump()),
+                                             f"Alert me with a voice note when {name} (from my photo) is seen on {cam['name']}."))["id"]
+    msg = (f"Now watching {cam['name']} for '{name}' from your photo (appearance match, no training). Replay on the "
+           f"last day: {len(hits)} similar sighting{'s' if len(hits) != 1 else ''} (Candidates - check them)."
+           + (" A rule is ready to activate." if rule else ""))
+    return {"ok": True, "object_id": obj_id, "name": name, "camera_id": camera_id, "cls": f"custom:{slug(name)}",
+            "threshold": round(threshold, 3), "replay": {"sightings": len(hits), "hits": hits[:6]}, "rule_id": rule,
+            "message": msg}

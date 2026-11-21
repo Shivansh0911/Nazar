@@ -181,5 +181,14 @@ export const api2 = {
     req<{ id: number; camera_id: string; name: string; prompt_type: string; active: boolean }[]>(`/api/custom-objects${qs({ camera_id })}`),
   teach: (camera_id: string, name: string) =>
     req<{ ok: boolean; message: string }>("/api/custom-objects", { method: "POST", body: JSON.stringify({ camera_id, name }) }),
+  teachPhoto: (camera_id: string, name: string, image: File, alert: boolean) => {
+    const fd = new FormData();
+    fd.append("camera_id", camera_id);
+    fd.append("name", name);
+    fd.append("image", image);
+    fd.append("alert", String(alert));
+    return req<{ ok: boolean; message: string; rule_id: number | null; replay: { sightings: number; hits: Hit[] } }>(
+      "/api/custom-objects/photo", { method: "POST", body: fd });
+  },
   deleteCustomObject: (id: number) => req<{ ok: boolean }>(`/api/custom-objects/${id}`, { method: "DELETE" }),
 };

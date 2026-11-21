@@ -28,7 +28,9 @@ from .siglip import SigLIP
 log = logging.getLogger("nazar.vision")
 app = FastAPI(title="nazar-vision")
 model = SigLIP()
-IDLE_UNLOAD_S = 180  # release GPU memory quickly on an 8 GB laptop
+# Idle unload is OFF by default: unloading + reloading SigLIP in-process crashed torch on Windows (access violation
+# in torch_cpu.dll). Set NAZAR_VISION_IDLE_UNLOAD_S=600 to opt in on Linux servers.
+IDLE_UNLOAD_S = float(__import__("os").environ.get("NAZAR_VISION_IDLE_UNLOAD_S", "0"))
 stats = {"tracks_indexed": 0, "keyframes_indexed": 0, "errors": 0, "started": time.time()}
 
 
@@ -78,7 +80,7 @@ def _load_rgb(key: str):
 def index_once(limit: int = 64) -> int:
     """Embed up to `limit` finished tracks and `limit` keyframes that have no visual embedding yet."""
     done = 0
-    rows = db.fetch_all("SELECT id, crop_keys FROM tracks WHERE vis_indexed = false AND active = false "
+    rows = db.fetch_all("SELECT id, crop_keys FROM tracks WHERE vis_indexed = false AND (active = false OR crop_keys <> '{}') "
                         "ORDER BY id DESC LIMIT %s", (limit,))
     if rows:
         ims, ids, empty = [], [], []
@@ -129,7 +131,7 @@ def indexer_loop(stop: threading.Event) -> None:
             log.warning("indexer: %s", e)
             n = 0
         if n == 0:
-            if model.model is not None and time.time() - model.last_used > IDLE_UNLOAD_S:
+            if IDLE_UNLOAD_S > 0 and model.model is not None and time.time() - model.last_used > IDLE_UNLOAD_S:
                 model.unload()
             stop.wait(2.0)
 

@@ -104,7 +104,7 @@ Flow: compile (LLM) → validate → show human-readable card → replay last 24
 
 ## Machine notes
 - v2: transformers must stay < 4.52 (torch 2.5.1+cu121). SigLIP 2 runs in `python -m nazar.vision.service` (:8010).
-- v2: the vision service uses ~2.8 GB private memory while loaded; it unloads after 3 idle minutes.
+- v2: the vision service uses ~2.8 GB private memory and keeps SigLIP loaded (in-process unload/reload crashed torch on Windows).
 - `DATA_DIR` on this laptop is outside OneDrive (`C:/Users/ssojh/AppData/Local/Nazar/data`).
 - OpenCV must stay < 5 (YuNet is ~5x slower on 5.x); Tailwind pinned to 4.1.11 (Node 20.14).
 - 8 GB RAM: run at most one or two edges at once.

@@ -161,14 +161,15 @@ Gurmukhi script → we do not claim Marathi.
 
 **Live** — `python scripts/live_alert_test.py`: the bag clip playing as a live camera fires the object-removed rule
 **3.0 s** after the pickup, with snapshot + voice note; `--teach`: a laptop taught by name is detected live by YOLOE
-and its rule fires 4.6 s after it appears. Security events on the demo data: the bag pickup on ABODA is flagged
+and its rule fires 4.6 s after it appears; `--photo demo/bag_photo.jpg`: an object taught from a photo (SigLIP 2
+appearance match, adaptive threshold) raises a live alert 23 s after it comes into view. Security events on the demo data: the bag pickup on ABODA is flagged
 *object taken* and AI-verified to **Probable**; the abandoned-bag heuristic fires but stays a *Candidate* (the AI saw
 a person next to the bag).
 
 **Live view** — `cd web; node ../scripts/webrtc_check.mjs`: the Live page plays the blurred view over WebRTC; the
 wall-clock stamp burned into the frame was < 0.5 s behind the screenshot time. Live detection: 2.3 fps under load.
 
-**Memory** (W1.9): vision service 2.8 GB private while SigLIP 2 is loaded (released after 3 idle minutes), one edge
+**Memory** (W1.9): vision service 2.8 GB private while SigLIP 2 is loaded (kept loaded: unloading/reloading it in-process crashed torch on Windows; opt-in unload via `NAZAR_VISION_IDLE_UNLOAD_S` on Linux), one edge
 0.5–1.6 GB, API 0.4 GB, worker 0.45 GB, Postgres 0.1 GB. With Docker, VS Code and a browser this 8 GB laptop had
 ~0.6 GB free — under the 1 GB goal; 16 GB is comfortable.
 
@@ -215,7 +216,9 @@ No GPU instances, no Bedrock, one instance. Click-by-click: [infra/DEPLOY.md](in
 - **Live view:** WebRTC (WHEP via MediaMTX) of the face-blurred stream with the tracker overlay burned in;
   glass-to-glass under ~0.5 s on this laptop, but live detection ran at only 2.3 fps while other services competed
   for the CPU (goal 10 fps). Boxes are drawn into the stream, not on a client canvas.
-- **Not done in v2:** the realtime "Call Nazar" voice mode, photo prompts for YOLOE (text prompts work), MOT17/snatch-dataset
+- **Teach by photo** uses the local SigLIP 2 index (YOLOE visual prompts scored 0.07–0.09 on our blurred 512 px frames):
+  matches are Candidates and arrive ~20 s after the object appears (crops are written after 20 s in view).
+- **Not done in v2:** the realtime "Call Nazar" voice mode, MOT17/snatch-dataset
   evaluation (multi-GB downloads), ANPR.
 - **Heuristic security events** (running, fall, snatch, loitering) are Candidates until verified; they were checked
   on the demo clips, not on a labelled dataset.

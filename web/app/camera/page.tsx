@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { MessageCircle, Play, Square } from "lucide-react";
+import { Camera, MessageCircle, Play, Square } from "lucide-react";
 import { api, mjpegUrl, snapshotUrl } from "@/lib/api";
 import { fmtDayTime, fmtTime } from "@/lib/format";
 import type { CameraOut, CountResult, Gap, TrackOut } from "@/lib/types";
@@ -159,6 +159,27 @@ function TeachCard({ cameraId }: { cameraId: string }) {
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. gas cylinder" className={inputCls} aria-label="Object to watch for" />
         <Btn onClick={teach} disabled={busy || !name.trim()}>{busy ? "Checking…" : "Teach"}</Btn>
       </div>
+      <label className="mt-2 flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-line px-3 py-2 text-xs text-muted hover:border-primary">
+        <Camera size={14} className="text-primary" />
+        <span>{busy ? "Learning from your photo…" : "…or teach from a photo of your own scooter / bag (objects only, never faces)"}</span>
+        <input type="file" accept="image/*" capture="environment" className="hidden" disabled={busy}
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (!f) return;
+            setBusy(true);
+            setMsg(null);
+            try {
+              const r = await api2.teachPhoto(cameraId, name.trim() || "my object", f, true);
+              setMsg(r.message);
+              setName("");
+              load();
+            } catch (err) {
+              setMsg((err as Error).message);
+            } finally {
+              setBusy(false);
+            }
+          }} />
+      </label>
       {msg && <div className="mt-2 text-xs">{msg}</div>}
       {items.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">

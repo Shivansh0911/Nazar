@@ -5,7 +5,7 @@ import random
 import time
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field
 
@@ -135,6 +135,39 @@ def add_custom(body: CustomIn, token: str = Depends(require_token)):
     r = teach_from_text(body.camera_id, body.name, alert=body.alert, ref="teach-ui")
     if not r.get("ok"):
         raise http_error(400, r.get("error") or "could not teach that object")
+    return r
+
+
+@router.post("/custom-objects/photo")
+async def add_custom_photo(camera_id: str = Form(...), name: str = Form(...), image: UploadFile = File(...),
+                           box: str | None = Form(None), alert: bool = Form(False),
+                           token: str = Depends(require_token)):
+    """Teach by photo: a photo of the owner's own scooter/bag (+ optional box). Faces are blurred first and a photo
+    that is basically a face is refused - this matches objects by appearance, never people by face."""
+    import json as _json
+    import uuid as _uuid
+
+    from ..core.vision_client import VisionUnavailable
+    from .routes_visual import MAX_PHOTO_MB, _blur_photo
+    from .teach import teach_from_photo
+
+    data = await image.read()
+    if len(data) > MAX_PHOTO_MB * 1024 * 1024:
+        raise http_error(413, f"photo larger than {MAX_PHOTO_MB} MB")
+    jpeg, face_only = _blur_photo(data, _json.loads(box) if box else None)
+    if face_only:
+        raise http_error(422, "Nazar does not learn faces. Photograph the object itself (scooter, bag, box).")
+    key = f"custom_objects/{_uuid.uuid4().hex}.jpg"
+    storage.put_bytes(jpeg, key)
+    try:
+        r = teach_from_photo(camera_id, name, jpeg, key, alert=alert)
+    except VisionUnavailable as e:
+        raise http_error(503, str(e))
+    if not r.get("ok"):
+        raise http_error(400, r.get("error") or "could not teach that object")
+    from .visual import with_urls
+
+    with_urls(r["replay"]["hits"], token)
     return r
 
 

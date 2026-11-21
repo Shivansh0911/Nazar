@@ -20,12 +20,20 @@ from nazar.core.config import get_settings  # noqa: E402
 ap = argparse.ArgumentParser()
 ap.add_argument("--api", default="http://localhost:8000")
 ap.add_argument("--teach", action="store_true")
+ap.add_argument("--photo", help="teach from this photo (e.g. demo/bag_photo.jpg) on builders-venue, then watch live")
 ap.add_argument("--timeout", type=float, default=300)
 a = ap.parse_args()
 H = {"X-Nazar-Token": httpx.post(f"{a.api}/api/auth", json={"passcode": get_settings().DEMO_PASSCODE}).json()["token"]}
 c = httpx.Client(base_url=a.api, headers=H, timeout=180)
 
-if a.teach:
+if a.photo:
+    cam = "builders-venue"
+    with open(a.photo, "rb") as f:
+        r = c.post("/api/custom-objects/photo", data={"camera_id": cam, "name": "green bag", "alert": "true"},
+                   files={"image": ("photo.jpg", f, "image/jpeg")}).json()
+    print("taught from photo:", r.get("message"))
+    rule_id = r["rule_id"]
+elif a.teach:
     cam = "builders-venue"
     r = c.post("/api/custom-objects", json={"camera_id": cam, "name": "laptop", "alert": True}).json()
     print("taught:", r.get("message"))

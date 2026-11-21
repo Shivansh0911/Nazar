@@ -239,7 +239,7 @@ the next session; this build used the Playwright npm package (`scripts/shots_v2.
 | W1 speed | ✅ (partly below target) | ffmpeg sampling + GPU-tensor batches (32) + ordered ByteTrack + batched DB writes; no re-encode; keyframes every 2 s; live analysis view |
 | W2 counting | ✅ | people seen = root tracks >= 1.5 s, conf >= 0.6; line counters (cross_in/out); receipts + proof reel + Verify toggle; clips from originals with egress blur, H.264 Main + poster |
 | W3 visual index | ✅ | vision service (SigLIP 2) indexes crops + keyframes; search by words/photo; recorded AI verification -> Probable; journey; photo audit; ENRICH_MODE=smart |
-| W4 teach | ✅ text prompts | YOLOE; replay on stored keyframes; live edge runs YOLOE ~1.7 fps when a camera has custom objects; rules accept `custom:<name>`. Visual (photo) prompts not done |
+| W4 teach | ✅ | text prompts: YOLOE (replay on stored keyframes; live ~1.7 fps). Photo prompts: SigLIP 2 photo embedding vs every new crop (adaptive p97.5 threshold, Candidates, alert via rule) - YOLOE visual prompts scored 0.07-0.09 on our frames so they were not used |
 | W5 security | ✅ | loitering, abandoned object, object removed, running, fall, crowding, after-hours, possible snatch; Flex AI check -> Probable; anomaly baseline; digest; FIR PDF (Hindi/English) |
 | W6 agent v2 | ✅ (latency above target) | 15 tools incl. analytics_query (sqlglot + nazar_ro), luna-first routing, SSE streaming, charts, clarify, 60 s cache |
 | W7 realtime voice | ❌ not done | P2, no time |
@@ -269,5 +269,5 @@ the next session; this build used the Playwright npm package (`scripts/shots_v2.
 
 ## v2 — exact next step
 Feature work is frozen. If resuming: (1) pair Telegram from Settings and verify a voice-note question + an alert
-arrive (FINAL_STEPS §4); (2) optional P1 left: YOLOE photo prompts, MOT17 eval, 10 fps live detection under load; (3) deploy per
+arrive (FINAL_STEPS §4); (2) optional P1 left: MOT17 eval, 10 fps live detection under load; (3) deploy per
 infra/DEPLOY.md only with the user's explicit yes for every AWS resource.

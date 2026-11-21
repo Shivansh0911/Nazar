@@ -83,6 +83,7 @@ class TrackManager:
         self._q: "queue.Queue[TrackState | None]" = queue.Queue()
         self._tls = threading.local()  # one YuNet per crop-IO thread
         self.wall_upsert = False
+        self.early_crops_s = 0.0  # live edges set this (e.g. 20 s)
         self._last_wall_upsert = 0.0
         self._writer = threading.Thread(target=self._write_loop, name="track-writer", daemon=True)
         self._writer.start()
@@ -124,7 +125,25 @@ class TrackManager:
         elif force_upsert or self._last_upsert is None or (t - self._last_upsert).total_seconds() >= self.upsert_every_s:
             self._upsert_active()
             self._last_upsert = t
+        if self.early_crops_s:
+            self._early_crops(t)
         self._retry_pending()
+
+    def _early_crops(self, t: datetime) -> None:
+        """Live cameras: people who stay (seated, waiting) would only get crops when they leave. After
+        `early_crops_s` write their crops once so the visual index and photo-taught objects see them while live."""
+        due = [st for st in self.active.values() if st.db_id is not None and not getattr(st, "_early", False)
+               and (t - st.first_seen).total_seconds() >= self.early_crops_s]
+        for st in due[:4]:
+            st._early = True  # type: ignore[attr-defined]
+            try:
+                keys, vec, _q = self._crops_for(st)
+                st._crop_result = None  # type: ignore[attr-defined]  # recompute the best crops at the end
+                db.execute("UPDATE tracks SET crop_keys=%s, appearance=%s, vis_indexed=false WHERE camera_id=%s AND "
+                           "run_id=%s AND local_id=%s", (keys, Vector(vec) if vec else None, self.camera_id,
+                                                         self.run_id, st.local_id))
+            except Exception as e:
+                log.warning("early crops failed: %s", e)
 
     def finalize_all(self) -> None:
         for k in list(self.active):
