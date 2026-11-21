@@ -15,6 +15,17 @@ from ..core.schemas import TrackCaption
 
 log = logging.getLogger("nazar.enricher")
 MAX_ATTEMPTS = 3
+VEHICLES = ("car", "motorcycle", "bus", "truck", "bicycle")
+# finished root tracks worth describing: >= ENRICH_MIN_SECONDS, vehicles only when they stay (parked / slow)
+ELIGIBLE_SQL = ("enriched = false AND active = false AND merged_into IS NULL AND enrich_attempts < 3 "
+                "AND t_end - t_start >= make_interval(secs => %(min_s)s) "
+                "AND (cls NOT IN ('car','motorcycle','bus','truck','bicycle') "
+                "     OR t_end - t_start >= make_interval(secs => %(veh_s)s))")
+
+
+def eligible_params() -> dict:
+    s = get_settings()
+    return {"min_s": s.ENRICH_MIN_SECONDS, "veh_s": s.ENRICH_VEHICLE_MIN_SECONDS}
 
 
 def embed_text(cls: str, c: TrackCaption) -> str:
@@ -32,11 +43,8 @@ class Enricher:
 
     def _candidates(self, limit: int = 32) -> list[dict]:
         return db.fetch_all(
-            """SELECT id, camera_id, cls, crop_keys FROM tracks
-                WHERE enriched = false AND active = false AND merged_into IS NULL AND enrich_attempts < %s
-                  AND t_end - t_start >= make_interval(secs => %s)
-                ORDER BY t_end DESC LIMIT %s""",
-            (MAX_ATTEMPTS, self.s.ENRICH_MIN_SECONDS, limit))
+            f"SELECT id, camera_id, cls, crop_keys FROM tracks WHERE {ELIGIBLE_SQL} ORDER BY t_end DESC LIMIT %(limit)s",
+            {**eligible_params(), "limit": limit})
 
     def _caption(self, tr: dict):
         imgs = []

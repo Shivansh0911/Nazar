@@ -33,7 +33,8 @@ def main() -> int:
     print(f"  cost per camera-day       {inr(m['cost_per_camera_day_inr'])}")
     per_img = m.get("per_image_usd")
     print(f"  one caption image         {'—' if per_img is None else f'${per_img:.6f}'}")
-    print(f"  naive per camera-day      {inr(m['naive_per_camera_day_inr'], 0)}  (one image per second, 86,400/day)")
+    print(f"  tracks described          {m.get('tracks_described')}  (${m.get('per_track_usd') or 0:.6f} per track)")
+    print(f"  naive per camera-day      {inr(m['naive_per_camera_day_inr'], 0)}  (one {m.get('baseline_kind')} per second, 86,400/day)")
     print(f"  ratio                     {'—' if not m['ratio'] else f'{m['ratio']:,.0f}x cheaper'}")
     if m["cost_per_camera_day_inr"] is None:
         print("\nNo enrichment cost yet: set OPENAI_API_KEY and run the worker so tracks get captioned.")

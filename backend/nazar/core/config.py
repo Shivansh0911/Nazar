@@ -50,6 +50,8 @@ class Settings(BaseSettings):
     MOTION_THRESH: float = 0.002
 
     ENRICH_MIN_SECONDS: float = 1.0
+    ENRICH_VEHICLE_MIN_SECONDS: float = 5.0  # passing traffic is not described; parked/slow vehicles are
+    VISION_REASONING_EFFORT: str = "none"  # captions are simple structured output; '' = model default
     ENRICH_CONCURRENCY: int = 4
     ENRICH_DAILY_USD_CAP: float = 5.0
     RETENTION_DAYS: int = 7
@@ -59,6 +61,7 @@ class Settings(BaseSettings):
     LEVEL_PROBABLE_SIM: float = 0.35
     LEVEL_CANDIDATE_SIM: float = 0.25
     MEDIAMTX_HOST: str = "localhost"
+    AGENT_REASONING_EFFORT: str = "none"  # agent/compiler reasoning effort (none|low|medium|high); "" = model default
     ALLOW_LAN_CAMERAS: bool = True  # shop DVRs live on 192.168.x.x; set false on a public server
     PUBLIC_HOST: str = ""  # host/IP phones use to reach MediaMTX (Add camera -> Phone); default = API host
     FFMPEG_DIR: str = ""

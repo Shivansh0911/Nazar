@@ -6,6 +6,7 @@ the server assembles AskResponse from those results, and the model cannot set or
 from __future__ import annotations
 
 import json
+import re
 import logging
 import threading
 import time
@@ -34,8 +35,9 @@ offices in India). The owner writes or speaks Hindi, English or Hinglish.
 
 Rules:
 - Always use tools for facts. Never invent counts, times, people or clips.
-- Counts come ONLY from count_events (or peak_occupancy for "how crowded / sabse zyada bheed"). Use event "present"
-  for "how many people came/were seen" on a camera, and event "enter" with a zone for "how many came to <zone>".
+- Counts come ONLY from count_events (or peak_occupancy for "how crowded / sabse zyada bheed"). If the owner names
+  only a camera or no place ("lobby mein kitne log aaye", "aaj kitne log aaye"), use event "present" with zone null.
+  Use event "enter" with a zone ONLY when the owner names a place that matches a zone label ("counter pe", "gate pe").
 - Descriptions ("red shirt", "laal shirt", "carrying a box", "helmet wala") go to search_tracks with structured
   attributes (colours, carrying, headwear words in text, vehicle) AND a short English `text` describing the person.
 - "Who came / kaun aaya / show me" without a description -> search_tracks without attributes (tracker facts).
@@ -223,7 +225,7 @@ def compile_rule(text: str, camera_id: str, language: str | None = None, *, ref:
             f"Owner's instruction: {text}")
     res, _ = get_ai().parse(get_settings().OPENAI_AGENT_MODEL, [{"role": "user", "content": user}], CompiledRule,
                             kind="compile", instructions=COMPILER_SYSTEM, camera_id=camera_id, ref=ref or "compile",
-                            max_output_tokens=600)
+                            max_output_tokens=1200, reasoning=get_settings().AGENT_REASONING_EFFORT or None)
     base = {"camera_id": camera_id, "text": text, "active": False}
     if not res.ok or not res.trigger or not res.cls:
         return {**base, "ok": False, "question": res.question or "Which area should I watch? Please draw it as a zone.",
@@ -304,7 +306,8 @@ def run_agent(question: str, camera_id: str | None, *, ref: str, token: str | No
     for rnd in range(MAX_ROUNDS + 1):
         last = rnd == MAX_ROUNDS
         resp, _ = ai.agent_step(model=model, input=inp, tools=None if last else TOOLS, instructions=AGENT_SYSTEM,
-                                text=text_fmt, ref=ref, camera_id=camera_id)
+                                text=text_fmt, ref=ref, camera_id=camera_id,
+                                reasoning=get_settings().AGENT_REASONING_EFFORT or None)
         fcalls = [o for o in (resp.output or []) if getattr(o, "type", None) == "function_call"]
         if not fcalls:
             raw = getattr(resp, "output_text", "") or ""
@@ -379,36 +382,63 @@ def assemble(answer: AgentAnswer, calls: list[dict], token: str | None) -> dict:
     return {"clips": clips, "count": count, "rule": rule, "gaps": gaps}
 
 
+def tts_name(ref: str) -> str:
+    return re.sub(r"[^a-zA-Z0-9_-]", "_", ref) + ".mp3"
+
+
 def ask(question: str, camera_id: str | None, *, token: str | None, transcript: str | None = None,
-        input_kind: str = "text", t_start: float | None = None, ref: str | None = None) -> dict:
+        input_kind: str = "text", t_start: float | None = None, ref: str | None = None,
+        wait_audio: bool = False) -> dict:
+    """Answer a question. The voice reply is synthesized in the background: the text answer returns as soon as the
+    agent is done and `audio_url` points at /api/ask/audio/<name>, which waits until the mp3 is ready."""
     t0 = t_start or time.perf_counter()
     ref = ref or f"q:{uuid.uuid4().hex[:12]}"
     answer, calls = run_agent(question, camera_id, ref=ref, token=token)
     lang = answer.language
-    audio: dict[str, Any] = {}
+    name = tts_name(ref)
+    key = f"tts/{name}"
+    qid_box: dict[str, int] = {}
+    qid_ready = threading.Event()
 
     def do_tts():
         try:
-            p = get_ai().tts(answer.reply_text, lang, ref=ref)
-            audio["key"] = storage.put(p, f"tts/{p.name}")
+            get_ai().tts(answer.reply_text, lang, out_path=storage.local_path(key), ref=ref)
+            storage.put(storage.local_path(key), key)
         except Exception as e:
             log.warning("TTS failed: %s", e)
+            try:
+                storage.local_path(key + ".failed").write_text(str(e)[:200])
+            except Exception:
+                pass
+            return
+        if qid_ready.wait(timeout=60):
+            try:
+                total = float(db.fetch_val("SELECT COALESCE(sum(cost_usd),0) FROM usage WHERE ref=%s", (ref,)) or 0)
+                db.execute("UPDATE queries SET cost_usd=%s, answer = answer || jsonb_build_object('audio_key', %s::text) "
+                           "WHERE id=%s", (total, key, qid_box["id"]))
+            except Exception as e:
+                log.warning("could not update query audio: %s", e)
 
     th = threading.Thread(target=do_tts, daemon=True)
     th.start()
     parts = assemble(answer, calls, token)
-    th.join(timeout=20)
+    if wait_audio:
+        th.join(timeout=30)
     latency = int((time.perf_counter() - t0) * 1000)
     cost = float(db.fetch_val("SELECT COALESCE(sum(cost_usd),0) FROM usage WHERE ref=%s", (ref,)) or 0)
+    base = get_settings().API_BASE_URL.rstrip("/")
+    audio_url = f"{base}/api/ask/audio/{name}" + (f"?token={token}" if token else "")
     resp = {"query_id": 0, "transcript": transcript, "language": lang, "reply_text": answer.reply_text,
-            "audio_url": storage.url(audio.get("key"), token), "count": parts["count"], "clips": parts["clips"],
+            "audio_url": audio_url, "count": parts["count"], "clips": parts["clips"],
             "rule": parts["rule"], "gaps": parts["gaps"], "followups": answer.followups[:3], "cost_usd": round(cost, 6),
             "cost_inr": round(cost * get_settings().USD_INR, 4),
             "latency_ms": latency}
     plan = [{"index": c["index"], "name": c["name"], "args": c["args"]} for c in calls]
-    stored = {k: v for k, v in resp.items() if k != "audio_url"} | {"audio_key": audio.get("key")}
+    stored = {k: v for k, v in resp.items() if k != "audio_url"}
     qid = db.fetch_one("INSERT INTO queries(camera_id, input_kind, transcript, language, plan, answer, latency_ms, cost_usd) "
                        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
                        (camera_id, input_kind, transcript or question, lang, Jsonb(plan), Jsonb(stored), latency, cost))["id"]
+    qid_box["id"] = qid
+    qid_ready.set()
     resp["query_id"] = qid
     return resp

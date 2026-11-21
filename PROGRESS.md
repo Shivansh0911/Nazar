@@ -187,3 +187,21 @@ start http://localhost:3000      # passcode nazar2026
 samples\clip2.mp4 cam1` + add camera `rtsp://localhost:8554/cam1`; worker `python -m nazar.worker.run`; API
 `uvicorn nazar.api.main:app --port 8000`; web `cd web; npm run dev`; eval `python scripts/eval_counts.py ...`,
 `python scripts/eval_search.py`; cost `python scripts/cost_report.py`; deploy `infra/DEPLOY.md`.
+
+## Full test with the real keys (2026-11-21, evening)
+- `check_env.py` 31/31, `check_models.py` 5/5 (gpt-6-luna, gpt-6-sol, text-embedding-3-small, gpt-4o-transcribe,
+  gpt-4o-mini-tts), `pytest` 72 passed (incl. 6 new `-m live` real-call tests: caption, embeddings, TTS→transcribe
+  round trip, rule compile + replay = 1, missing-zone question, Hinglish ask = Confirmed SQL count), web lint/build clean.
+- Question battery: 10 text (Hinglish/Hindi/English) + 2 Hindi voice notes (webm + m4a) → 12/12: reply language and
+  script match, counts equal the SQL series, Candidates never above Probables, voice reply delivered, 3 am question
+  answered "camera offline". `scripts/smoke.ps1` PASS.
+- Fixes found by testing: caption output was truncated (raised cap); captions/agent use reasoning effort `none`
+  (`VISION_REASONING_EFFORT`, `AGENT_REASONING_EFFORT`) → ~40 % cheaper captions, text answers 7–10 s (was 11–17 s);
+  voice reply is synthesized after the text answer and served by `/api/ask/audio/<name>` (waits until ready);
+  counting rule: no place named → everyone seen (the same Hindi voice question had given 11 vs 74); passing vehicles
+  (< `ENRICH_VEHICLE_MIN_SECONDS`=5 s) are not described; cost per camera-day counts the latest caption per
+  described track; Metrics shows ₹ per described object.
+- Honest cost result: ₹0.010 per described person/vehicle; on the rush-hour demo footage ₹351/camera-day vs a naive
+  ₹449 (crop-priced). A full-frame baseline measurement was NOT run: it would send a full frame to OpenAI, which this
+  project forbids.
+- Demo video: `scripts/demo_video.mjs --channel chrome` records the full flow incl. a live alert (`demo/`, not committed).

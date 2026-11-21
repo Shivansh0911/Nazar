@@ -32,3 +32,6 @@ backend/models/
 *.onnx
 *_openvino_model/
 runs/
+
+# recorded demo videos
+demo/

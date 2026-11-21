@@ -131,8 +131,10 @@ class NazarAI:
     # ---- generic calls ----------------------------------------------------
     def parse(self, model: str, input: Any, schema: type[T], *, kind: str, instructions: str | None = None,
               camera_id: str | None = None, ref: str | None = None, images: int | None = None,
-              max_output_tokens: int | None = None) -> tuple[T, float]:
+              max_output_tokens: int | None = None, reasoning: str | None = None) -> tuple[T, float]:
         kwargs: dict[str, Any] = {"model": model, "input": input, "text_format": schema}
+        if reasoning:
+            kwargs["reasoning"] = {"effort": reasoning}
         if instructions:
             kwargs["instructions"] = instructions
         if max_output_tokens:
@@ -148,8 +150,10 @@ class NazarAI:
 
     def agent_step(self, *, model: str, input: list, tools: list | None = None, instructions: str | None = None,
                    kind: str = "agent", ref: str | None = None, camera_id: str | None = None, text: dict | None = None,
-                   tool_choice: Any = None) -> tuple[Any, float]:
+                   tool_choice: Any = None, reasoning: str | None = None) -> tuple[Any, float]:
         kwargs: dict[str, Any] = {"model": model, "input": input}
+        if reasoning:
+            kwargs["reasoning"] = {"effort": reasoning}
         if tools:
             kwargs["tools"] = tools
         if instructions:
@@ -175,7 +179,8 @@ class NazarAI:
         model = self._vision_model()
         try:
             return self.parse(model, inp, TrackCaption, kind="caption", instructions=CAPTION_SYSTEM,
-                              camera_id=camera_id, ref=ref, images=len(images[:3]), max_output_tokens=400)
+                              camera_id=camera_id, ref=ref, images=len(images[:3]), max_output_tokens=1200,
+                              reasoning=get_settings().VISION_REASONING_EFFORT or None)
         except (AIUnavailable, AIKeyProblem):
             raise
         except Exception as e:
@@ -186,7 +191,8 @@ class NazarAI:
                     self._warned_fallback = True
                 self._vision_model_override = fb
                 return self.parse(fb, inp, TrackCaption, kind="caption", instructions=CAPTION_SYSTEM,
-                                  camera_id=camera_id, ref=ref, images=len(images[:3]), max_output_tokens=400)
+                                  camera_id=camera_id, ref=ref, images=len(images[:3]), max_output_tokens=1200,
+                              reasoning=get_settings().VISION_REASONING_EFFORT or None)
             raise
 
     def vision_check(self, image: bytes, question: str, *, camera_id: str | None = None,

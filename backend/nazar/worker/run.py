@@ -30,10 +30,8 @@ def jobs_once(ev: eventize_loop.Eventizer) -> int:
         if pending_events:
             continue
         if has_key:
-            left = db.fetch_val(
-                """SELECT count(*) FROM tracks WHERE job_id=%s AND enriched=false AND active=false AND merged_into IS NULL
-                     AND enrich_attempts < %s AND t_end - t_start >= make_interval(secs => %s)""",
-                (j["id"], enricher.MAX_ATTEMPTS, get_settings().ENRICH_MIN_SECONDS))
+            left = db.fetch_val(f"SELECT count(*) FROM tracks WHERE job_id=%(job)s AND {enricher.ELIGIBLE_SQL}",
+                                {**enricher.eligible_params(), "job": j["id"]})
             if left:
                 continue
             db.execute("UPDATE jobs SET state='ready', updated_at=now() WHERE id=%s", (j["id"],))

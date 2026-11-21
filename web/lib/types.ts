@@ -205,6 +205,9 @@ export interface MetricsOut {
   level_distribution: Record<Level, number>;
   unknown_price_calls: number;
   eval: Record<string, unknown> | null;
+  per_track_inr?: number | null;
+  tracks_per_hour?: number | null;
+  tracks_described?: number;
 }
 
 export interface Health {

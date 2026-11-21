@@ -29,8 +29,9 @@ The cameras see everything; the owner can ask nothing.
 | **Alert** | (a person picks up the bag on desk 14) | A red alert bubble with a face-blurred snapshot and a voice note, ~4 s after it happens |
 | **Find again** | tap *Find again* on any person | Same-looking people ±24 h from a 76-number appearance fingerprint — no face recognition |
 
-On the demo data (no key needed for these): the object-removed rule on *Office desk* fires once, at 21:51,
-with the person who took the bag as the actor; the shop counter had 12 people after 10 pm in SQL.
+On the demo data: the object-removed rule on *Office desk* replays to exactly one hit (21:51, with the person who took
+the bag as the actor), and when the same clip plays as a live camera the alert arrives as a red bubble with a
+Hinglish voice note. A 3-minute recorded walkthrough: `scripts/demo_video.mjs` (see *Demo video* below).
 
 ## Demo in 60 seconds
 ```powershell
@@ -49,6 +50,12 @@ powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1           # worke
 6. Aaj subah lobby mein sabse zyada bheed kab thi?
 7. रात 2 बजे के बाद night stall पर कितने लोग आए?
 8. Show me people carrying a bag on the market street this morning
+
+## Demo video
+`scripts/demo_video.mjs` records the real app end to end (captions on screen): cameras → zones → teach a rule by
+text, replay, activate → bag clip playing as a live camera → Hinglish count → Hindi voice note → bag search with
+evidence levels → clip player with the tracked box → find again → **live alert** → cost page. Run it with
+`cd web; node ../scripts/demo_video.mjs --channel chrome --wav ..\demo\q_hi.wav` (writes `demo/nazar_demo.webm`).
 
 ## How it works
 ```mermaid
@@ -126,8 +133,8 @@ Every call writes a `usage` row (tokens, images, audio seconds, cost). Model nam
 Guardrails: no GPU instances, no Bedrock, exactly one instance, budget alert. Click-by-click: [infra/DEPLOY.md](infra/DEPLOY.md).
 
 ## Measured results
-Measured on 2026-11-21, on the demo data (13 clip runs over 6 cameras, 0.22 h of footage, 682 tracks), on the dev laptop
-(RTX 4050 Laptop 6 GB, i5-13420H, 8 GB RAM).
+Measured on 2026-11-21 with the real models (gpt-6-luna captions, gpt-6-sol agent), on the demo data (6 cameras,
+~0.2 h of busy footage, ~650 tracks, 340 described), on the dev laptop (RTX 4050 Laptop 6 GB, i5-13420H, 8 GB RAM).
 
 | Metric | Value | Source |
 |---|---|---|
@@ -136,9 +143,18 @@ Measured on 2026-11-21, on the demo data (13 clip runs over 6 cameras, 0.22 h of
 | Detection fps, EC2 CPU (OpenVINO) | — | run the edge on EC2 after `download_models.py --export-cpu` |
 | Count accuracy | **80 %** (1 window: 6 tracked vs 5 people counted by hand; one ID switch) | `scripts/eval_counts.py` |
 | Live alert latency (RTSP → WebSocket) | **3.3–4.2 s** (3 alerts) | M7 live test |
-| Search hit@3 / confidently-wrong rate | — | `python scripts/eval_search.py` (needs the key) |
-| Ask latency p50 / p90 | — | Metrics page after asking (needs the key) |
-| ₹ per camera-day / naive ₹ per camera-day / ratio | — / — / — | `python scripts/cost_report.py` (needs the key) |
+| End-to-end question battery (10 text Hinglish/Hindi/English + 2 Hindi voice notes) | **12/12 pass**: reply in the asker's language/script, counts = SQL series, Candidates never above Probables, voice reply delivered | test battery + `scripts/smoke.ps1` PASS |
+| Ask latency p50 / p90 (text answer) | **9.5 s / 13.0 s** over 46 questions (best 5.2 s); the voice reply follows 2–3 s later | Metrics page |
+| Cost per question | **₹0.25–0.85** typical (₹2.1 for a multi-search question) | `queries.cost_usd` |
+| Cost to describe one tracked person/vehicle | **₹0.010** ($0.00011, 1–3 crops, gpt-6-luna) | `python scripts/cost_report.py` |
+| ₹ per camera-day / naive / ratio | **₹351 / ₹449 / ~1.3×** on this rush-hour-dense demo footage (~1,500 described objects per hour) — see note | `python scripts/cost_report.py` |
+| Search hit@3 / confidently-wrong rate | — (fill truth windows in `scripts/eval/questions.yaml`) | `python scripts/eval_search.py` |
+
+**Cost, honestly.** Nazar's AI cost follows *activity*, not time: ₹0.01 per person or parked vehicle it describes
+(passing traffic seen < 5 s is not described). The demo clips are rush-hour streets and malls, so extrapolating them
+to 24 h gives ₹351/day — barely below a naive "one image per second" design (₹449/day, priced at the same small
+crop; real full frames would cost more, and Nazar never sends full frames). For a shop with ~500 visitors a day the
+same numbers give ≈ ₹5/day. Questions cost ₹0.25–0.85 each.
 
 ## Connect a real camera
 - **Phone:** Cameras → Add camera → **Phone** shows a QR and the exact Larix Broadcaster URL
@@ -213,6 +229,9 @@ samples/               clip sources + demo manifest (videos are downloaded, not 
 - **Attribute errors:** colours and "carrying" come from a vision model on small crops; that is why they only ever
   reach *Probable*, and a pure similarity match stays a *Candidate*.
 - **Laptop limits:** on 8 GB RAM two edges at once compete with everything else; the edge needs ~30 s to load.
+- **Answer latency** is 7–13 s (two agent rounds + tools), above the 6 s goal; the voice reply streams in after the text.
+- **Cost on busy scenes:** on rush-hour footage the per-camera-day cost is close to a naive per-second design (see
+  *Measured results*); the saving comes from quiet hours and from never sending full frames.
 
 ## Roadmap
 - **A Camera Agent inside Equal's AI messenger:** ask over chat or voice note, alerts arrive as messages or calls.
