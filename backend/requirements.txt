@@ -1,7 +1,7 @@
 # Install torch FIRST (see requirements-gpu.txt), then: pip install -r backend/requirements.txt
 ultralytics>=8.3.0
 lap>=0.5.12
-opencv-python>=4.10
+opencv-python>=4.10,<5  # OpenCV 5.x DNN engine runs YuNet ~5x slower
 numpy>=1.26,<2.3
 psycopg[binary]>=3.2
 psycopg-pool>=3.2

@@ -3,7 +3,7 @@
 Spec: `BUILD_PROMPT.md` (source of truth). Resume by reading this file, then continue from **Exact next step**.
 
 ## Current status
-- **Current milestone:** M2 (edge pipeline on a file)
+- **Current milestone:** M3 (worker)
 - **Exact next step:** see the last milestone entry below.
 
 ## Environment notes (discovered, do not re-discover)
@@ -15,6 +15,10 @@ Spec: `BUILD_PROMPT.md` (source of truth). Resume by reading this file, then con
   (`DATABASE_URL=postgresql://nazar:nazar@localhost:5433/nazar`). Don't stop the SETU containers.
 - openai SDK 3.57 (Responses API: `responses.parse(text_format=...)`, `output_parsed`,
   `usage.input_tokens_details.cached_tokens`). ultralytics 8.4.216, torch 2.5.1+cu121 (CUDA OK on RTX 4050).
+- **DATA_DIR is outside OneDrive** on this machine (`C:/Users/ssojh/AppData/Local/Nazar/data`, set in `.env`) so
+  footage doesn't sync to the cloud. `data/inspect/` in the repo is only used for self-review images.
+- **OpenCV must be < 5**: OpenCV 5.1's DNN engine runs YuNet ~5x slower (99 ms vs 20 ms at 640 px).
+- ultralytics 8.4 deprecates `half=True` → use `quantize=16`.
 - Pexels pages occasionally return 403 to scripted requests; `fetch_samples.py` prints the pages to fetch manually.
 
 ## Commands
@@ -54,3 +58,20 @@ table, timeutil, stitcher pure merge logic (`nazar/worker/stitcher.py::find_merg
 test-only fake client (`tests/fakes.py`): request building, cost rows, vision fallback, retries, 401 handling.
 **Run:** `cd backend; ..\.venv\Scripts\python -m pytest -q` → 55 passed.
 **Next:** M2 edge (`nazar/edge/*`), run on samples/clip1.mp4 with --preview, visual self-review.
+
+## M2 — Edge pipeline on a file ✅ (2026-11-21)
+**Built:** `nazar/edge/` — source (file time = start + POS_MSEC, simulate-live, loop, live reconnect with backoff,
+×2 upscale for < 720p sources), detector (YOLO11n + ByteTrack yaml, fp16 on CUDA, warm-up, OpenVINO/ONNX on CPU),
+motion gate, tracker_state (5 Hz paths, majority class, 1 s batch upserts, finalize with 3 blurred crops +
+76-d appearance, < 3 obs dropped, revived ByteTrack ids get a new generation, 60 s DB-down buffer), faceblur (YuNet
+@512 + top-18 % person fallback), segments (10 s ffmpeg H.264, gap-filling to keep exact timing), snapshot,
+heartbeat (+ job progress), `--preview`.
+**Measured:** clip1 (1280×720): detect 24.6 fps on RTX 4050 (fp16, imgsz 640), whole pipeline 1.22× real time;
+clip6 (720×480 upscaled ×2, imgsz 960): detect 19.6 fps.
+**Self-review:** preview/segment/crop frames in `data/inspect/` (`preview_sheet.png`, `crops_sheet.png`,
+`segment_frame.png`): boxes on the right objects, vendor keeps `person#2` across the clip, faces blurred everywhere,
+timestamps 22:30 IST as requested, segments contiguous 0–32.1 s.
+**Footage change:** CAVIAR's top-down fisheye bag (~20 px) is never detected by COCO YOLO → clip6 is now ABODA
+video10 (bag put on a desk, detected as suitcase in every sample) + its tail reversed (pickup). On real tracks the
+`object_removed` rule fires once with the correct actor (person track beside the desk). CAVIAR kept as an extra.
+**Next:** M3 worker (eventize loop, rules loop, alerts, enricher, retention) + `demo_setup.py`.

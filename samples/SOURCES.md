@@ -13,9 +13,9 @@ Normalized format: H.264, yuv420p, max 1280 px wide, max 30 fps, no audio, ≤ 5
 | `clip3.mp4` | `main-road` (Main road / parking side) | City road in front of shops: motorcycles, autos, cars, trucks, pedestrians. Elevated fixed view, India. 1280×720 | 28 s | [Pexels 28925595](https://www.pexels.com/video/busy-urban-traffic-scene-in-city-center-28925595/) | Karthick S | Pexels License |
 | `clip4.mp4` | `lobby` (Lobby) | Large mall/transit lobby, people crossing the floor in front of shop entrances. Elevated fixed view. 1280×720 | 86 s | [Pexels 2985409](https://www.pexels.com/video/people-spending-time-inside-a-mall-2985409/) | Joshua Santos | Pexels License |
 | `clip5.mp4` | `night-market` (Night stall) | Fruit stall at night under tube lights, customers at the counter. Fixed, low light. 1280×720 | 25 s | [Pexels 32166140](https://www.pexels.com/video/bustling-night-fruit-market-with-vibrant-colors-32166140/) | Riaz Uddin | Pexels License |
-| `clip6_bag.mp4` | `office-desk` (Office desk) | INRIA entrance lobby from the ceiling (CAVIAR `LeftBag_PickedUp`): a bag is left, later picked up by someone else. 384×288 (edge upscales ×2) | 55 s | [CAVIAR dataset, first set](https://homepages.inf.ed.ac.uk/rbf/CAVIARDATA1/) | CAVIAR project / INRIA | Research use with acknowledgement |
+| `clip6_bag.mp4` | `office-desk` (Office desk) | Office/classroom desks from a corner CCTV (ABODA `video10`): a person puts a bag on a desk and leaves. **The second half is the clip's last 45 s played backwards**, so the person returns and takes the bag — a constructed pickup that drives the `object_removed` demo. 720×480 (edge upscales ×2) | 121 s | [ABODA](https://github.com/kevinlin311tw/ABODA) | ABODA authors (Kevin Lin et al.) | Public research dataset, no explicit licence; credited, non-commercial demo |
 
-Upload-test clips (not in the manifest): `extra_mall.mp4` ([Pexels 4750061](https://www.pexels.com/video/people-walking-inside-the-shopping-mall-4750061/), Anvar Tushakov),
+Upload-test clips (not in the manifest): `extra_caviar_leftbag.mp4` ([CAVIAR](https://homepages.inf.ed.ac.uk/rbf/CAVIARDATA1/) `LeftBag_PickedUp`, 384×288 ceiling fisheye — the bag is ~20 px and is not detected by COCO YOLO; kept as an honest hard case), `extra_mall.mp4` ([Pexels 4750061](https://www.pexels.com/video/people-walking-inside-the-shopping-mall-4750061/), Anvar Tushakov),
 `extra_leftbox.mp4` (CAVIAR `LeftBox`), `extra_portrait.mp4` (540×960 portrait, [Pexels 39545313](https://www.pexels.com/video/busy-city-street-intersection-with-pedestrians-and-cyclists-39545313/)),
 `extra_4k.mp4` (3840×2160, [Pexels 4687383](https://www.pexels.com/video/top-view-of-people-walking-on-concrete-stairs-4687383/), Kelly).
 
@@ -26,4 +26,5 @@ hackathon research demo and acknowledge it here and in the README.
 
 Selection check (done on 2026-11-21): every clip was probed with ffprobe and three frames per clip were extracted to
 `data/inspect/` and reviewed — fixed camera (no pan/drone), people at small-to-medium size, correct orientation.
-Rejected candidates: drone/aerial parking clips and a handheld Indian street clip (camera moves).
+Rejected candidates: drone/aerial parking clips and a handheld Indian street clip (camera moves). CAVIAR's
+bag clips were the first choice for clip6 but their top-down bag is never detected, so ABODA replaced them.

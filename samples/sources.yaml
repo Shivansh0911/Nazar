@@ -1,5 +1,6 @@
 # Demo footage sources. Re-download + normalize with:  python scripts/fetch_samples.py
 # Pexels clips are under the Pexels License (free to use, no attribution required; we credit anyway).
+# ABODA: public abandoned-object research dataset (GitHub kevinlin311tw/ABODA).
 # CAVIAR clips: EC Funded CAVIAR project/IST 2001 37540 - free for research use with acknowledgement.
 clips:
   - out: samples/clip1.mp4
@@ -49,12 +50,13 @@ clips:
     license: Pexels License
   - out: samples/clip6_bag.mp4
     camera: office-desk
-    scene: "INRIA lobby from the ceiling (CAVIAR LeftBag_PickedUp): a person leaves a bag, another person picks it up; 384x288"
+    scene: "Office/classroom desks from a corner CCTV (ABODA video10): a person puts a bag on a desk and leaves; the second half is the same footage time-reversed, so the person comes back and takes the bag (constructed pickup for the object_removed demo). 720x480"
     source: url
-    url: https://homepages.inf.ed.ac.uk/rbf/CAVIARDATA1/LeftBag_PickedUp/LeftBag_PickedUp.mpg
-    page: https://homepages.inf.ed.ac.uk/rbf/CAVIARDATA1/
-    author: CAVIAR project (INRIA)
-    license: "Research use; acknowledge EC Funded CAVIAR project/IST 2001 37540"
+    url: https://raw.githubusercontent.com/kevinlin311tw/ABODA/master/video10.avi
+    page: https://github.com/kevinlin311tw/ABODA
+    author: ABODA (ABandoned Objects DAtaset), Kevin Lin et al.
+    license: "Public research dataset (no explicit licence in the repository); used for a non-commercial research demo with credit"
+    pickup_reverse_from: 30
 
 # Not in the demo manifest: used to test the Upload flow with arbitrary videos.
 extras:
@@ -66,6 +68,13 @@ extras:
     page: https://www.pexels.com/video/people-walking-inside-the-shopping-mall-4750061/
     author: Anvar Tushakov
     license: Pexels License
+  - out: samples/extra_caviar_leftbag.mp4
+    scene: "CAVIAR LeftBag_PickedUp (INRIA lobby, ceiling fisheye 384x288): bag left and picked up - too small/top-down for COCO detection, kept as an honest hard case"
+    source: url
+    url: https://homepages.inf.ed.ac.uk/rbf/CAVIARDATA1/LeftBag_PickedUp/LeftBag_PickedUp.mpg
+    page: https://homepages.inf.ed.ac.uk/rbf/CAVIARDATA1/
+    author: CAVIAR project (INRIA)
+    license: "Research use; acknowledge EC Funded CAVIAR project/IST 2001 37540"
   - out: samples/extra_leftbox.mp4
     scene: "CAVIAR LeftBox: a box is left in the lobby"
     source: url

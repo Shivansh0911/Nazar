@@ -5,6 +5,7 @@
 
 Normalization: H.264, yuv420p, max 1280 px wide, max 30 fps, no audio, <= 5 minutes.
 Entries with `raw: true` are kept as downloaded (used to test upload of 4K / portrait files).
+Entries with `pickup_reverse_from: S` append the clip's tail from S seconds played backwards (bag pickup).
 """
 from __future__ import annotations
 
@@ -72,6 +73,19 @@ def normalize(src: Path, dst: Path) -> None:
     os.replace(tmp, dst)
 
 
+def build_pickup(src: Path, dst: Path, reverse_from: float) -> None:
+    """Forward clip followed by its tail [reverse_from, end] played backwards: a placed object is taken again."""
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dst.with_name(dst.stem + ".tmp.mp4")
+    fc = (f"[0:v]scale='min(1280,iw)':-2,split[a][b];[a]setpts=PTS-STARTPTS[f];"
+          f"[b]trim=start={reverse_from},setpts=PTS-STARTPTS,reverse[r];[f][r]concat=n=2:v=1:a=0[v]")
+    cmd = [ffmpeg_bin(), "-hide_banner", "-loglevel", "error", "-y", "-i", str(src), "-filter_complex", fc,
+           "-map", "[v]", "-an", "-fpsmax", "30", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+           "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(tmp)]
+    subprocess.run(cmd, check=True, timeout=900)
+    os.replace(tmp, dst)
+
+
 def ffprobe_summary(p: Path) -> str:
     r = subprocess.run([ffprobe_bin(), "-v", "error", "-select_streams", "v:0", "-show_entries",
                         "stream=codec_name,width,height,avg_frame_rate,pix_fmt:format=duration", "-of",
@@ -106,7 +120,9 @@ def main() -> int:
             if not raw.exists() or args.force:
                 print(f"download {url}")
                 download(url, raw)
-            if e.get("raw"):
+            if e.get("pickup_reverse_from") is not None:
+                build_pickup(raw, out, float(e["pickup_reverse_from"]))
+            elif e.get("raw"):
                 out.parent.mkdir(parents=True, exist_ok=True)
                 with open(raw, "rb") as fi, open(out, "wb") as fo:
                     fo.write(fi.read())
