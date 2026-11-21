@@ -3,7 +3,7 @@
 Spec: `BUILD_PROMPT.md` (source of truth). Resume by reading this file, then continue from **Exact next step**.
 
 ## Current status
-- **Current milestone:** M6 (web app) — M5 code written, live AI calls need the key
+- **Current milestone:** M8 (deploy kit) — M5 live AI calls still need the key
 - **Exact next step:** see the last milestone entry below.
 
 ## Environment notes (discovered, do not re-discover)
@@ -37,6 +37,10 @@ python scripts/download_models.py
 
 ## Needs the user's env to verify
 - `python scripts/check_models.py` (needs `OPENAI_API_KEY`).
+- `cd backend; ..\.venv\Scripts\python -m pytest -m live` (real OpenAI calls).
+- Ask by text/voice, rule compile, enrichment, TTS, suggest-zones: `powershell -File scripts\smoke.ps1`.
+- **git push**: Git Credential Manager needs an interactive GitHub sign-in on this machine — run `git push origin main`
+  once in a terminal; all local commits go up together.
 
 ---
 
@@ -103,3 +107,34 @@ structural search = confirmed, crops served, clip mp4 served, snapshot, metrics,
 live: uploaded `extra_mall.mp4` → ready in ~40 s with 43 tracks; 4K upload normalized to 1280 px (0 tracks:
 top-down stairs); portrait 540×960 → 27 tracks; start/stop edge via API; MJPEG 14 frames / 4 s.
 **Next:** M6 web app (M5 agent/voice/compiler code + fake-client tests already done; live calls need the key).
+
+## M5 — Agent, voice, rule compiler (code ✅, live calls need the key)
+**Built:** `api/agent.py` (Responses API loop, strict function tools search_tracks/count_events/peak_occupancy/
+camera_gaps/create_rule, JSON-schema final answer, server-side assembly: levels/clips/counts only from tool results,
+Candidates sorted last, TTS in parallel, `queries` row with plan/answer/latency/cost), rule compiler (structured
+output → RuleSpec validation → missing-zone question → replay over the last 24 h or data coverage → saved inactive),
+`api/voice.py` (extension from content-type, transcription prompt with zone labels, audio seconds for cost).
+**Verified with the test-only fake client:** tool loop + function_call_output wiring, strict schemas, stable
+instructions first, unknown track ids dropped, model cannot inject levels (`tests/test_agent.py`).
+**Needs the key:** real asks (text/voice), compile, TTS.
+
+## M6 — Web app ✅ (2026-11-21)
+**Built:** Next.js 15 static export (`web/`), Tailwind 4.1.11 (pinned: newer @tailwindcss/node breaks on Node 20.14),
+login, chat (mic recorder with timer + level meter + 30 s cap, text, suggestions, count card with SVG bars, clip
+cards with level badges, clip player with canvas box overlay, find-again sheet, rule card with replay + Activate,
+alert bubbles via WebSocket, audio unlock + sound toggle + tap-to-play fallback), cameras, add camera (upload with
+progress → processing → "Ready — ask about it", phone with Larix URL + QR + LAN IP, RTSP), camera page (MJPEG/
+snapshot, zone editor with drag + AI suggest, hourly timeline, gaps, recent tracks), rules, metrics.
+**Verified:** `npm run lint` 0 problems, `npm run build` OK; Playwright screenshots (`scripts/screenshots.mjs`) at
+390 px and 1280 px reviewed; 0 px horizontal overflow on all routes at 390 px. Fixed after review: empty replay text,
+"1 people", clipped tab label, phone URL showing localhost.
+
+## M7 — Live ingest ✅ (2026-11-21)
+**Built:** `scripts/live_from_file.ps1`, `scripts/demo_live.ps1` (-Camera office-desk plays the bag clip live on the
+Office desk camera), `scripts/process_recordings.py`, `scripts/start_all.ps1`, `scripts/smoke.ps1`; MediaMTX config
+with optional raw recording.
+**Verified:** `live_from_file.ps1 samples\clip2.mp4 cam1` → camera added via API with `rtsp://localhost:8554/cam1`
+(edge auto-started by the edge manager) → zone_enter rule activated → 3 alerts received over the WebSocket
+3.3–4.2 s after the event, each with a snapshot. First track 32 s after camera creation (model load under memory
+pressure; tracks are upserted every 1 s once detected). `process_recordings.py` parses MediaMTX file names.
+**Not verified:** a physical phone via Larix (no phone stream in this session).
