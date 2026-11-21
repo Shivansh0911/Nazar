@@ -145,7 +145,9 @@ pressure; tracks are upserted every 1 s once detected). `process_recordings.py` 
 `infra/Caddyfile` (sslip.io domain, flush for MJPEG/WS), `infra/DEPLOY.md` (S3 + lifecycle, IAM role, SGs, RDS
 pgvector, one c7i.xlarge, Amplify, Larix, guardrails). `.dockerignore`.
 **Verified:** `docker compose -f infra/docker-compose.prod.yml config` valid, dev compose valid, `caddy validate`
-(caddy:2 image) → "Valid configuration", `web/out` static export built. Docker image build: see below.
+(caddy:2 image) → "Valid configuration", `web/out` static export built.
+**Not verified:** `docker build -f infra/Dockerfile.backend .` — 4 attempts failed only on PyPI read timeouts inside the
+Docker Desktop VM on this network (base image + apt + one torch layer succeeded). Re-run on a good connection or on EC2.
 **No AWS resources were created.**
 
 ## M9 — Eval, docs (2026-11-21)
@@ -167,7 +169,7 @@ API (all routes; 8 smoke tests + 59 unit tests), upload of any video incl. 4K/po
 MJPEG, clips with box overlay, find-again, rule replay, live alerts over WebSocket in ~4 s, web app (lint/build
 clean, reviewed screenshots), deploy kit (compose/caddy validated).
 
-**Needs your env (see FINAL_STEPS.md):** OpenAI key → `check_models.py`, `pytest -m live`, enrichment, ask by
+**Needs your env (see FINAL_STEPS.md):** backend Docker image build (network timeouts here); OpenAI key → `check_models.py`, `pytest -m live`, enrichment, ask by
 text/voice, compile, TTS, suggest-zones, cost numbers, search eval, chat screenshots; `git push` sign-in; AWS deploy.
 
 **Run the demo in 5 commands:**

@@ -93,4 +93,5 @@ git add README.md docs/screenshots; git commit -m "docs: measured results and sc
 | Phone via Larix | no phone stream here; the same RTSP path is verified with `live_from_file.ps1` | Add camera → Phone, stream, watch the camera page |
 | EC2 CPU fps / Docker image on EC2 | not deployed | `infra/DEPLOY.md` step 6 |
 | `git push` | needs your GitHub sign-in | `git push origin main` |
+| Backend Docker image | 4 builds here failed only on PyPI read timeouts inside Docker's VM (Dockerfile steps themselves ran) | `docker build -f infra/Dockerfile.backend -t nazar-backend .` on a good connection, or on EC2 (DEPLOY step 6) |
 | 8 GB laptop | other apps (SETU containers, VS Code) leave little RAM; edges take ~30 s to start | close heavy apps before the demo |
