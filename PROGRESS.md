@@ -3,7 +3,7 @@
 Spec: `BUILD_PROMPT.md` (source of truth). Resume by reading this file, then continue from **Exact next step**.
 
 ## Current status
-- **Current milestone:** M1 (core library + unit tests)
+- **Current milestone:** M2 (edge pipeline on a file)
 - **Exact next step:** see the last milestone entry below.
 
 ## Environment notes (discovered, do not re-discover)
@@ -46,3 +46,11 @@ portrait 540×960, 4K). All normalized and visually checked (`data/inspect/all_c
 **Verified:** migrations applied; `check_env.py` 31/31 OK (OpenAI key ⚠️ empty).
 **Not verified:** `check_models.py` — no key yet.
 **Next:** M1 unit tests for the core library.
+
+## M1 — Core library + unit tests ✅ (2026-11-21)
+**Built:** tests for geometry, appearance (76-d, deterministic), eventizer (hysteresis, boundary jitter, enter/exit/dwell
+incl. ongoing), rules (all triggers, object_removed with/without actor, count_over cooldown, midnight windows), levels
+table, timeutil, stitcher pure merge logic (`nazar/worker/stitcher.py::find_merges`), OpenAI plumbing with the
+test-only fake client (`tests/fakes.py`): request building, cost rows, vision fallback, retries, 401 handling.
+**Run:** `cd backend; ..\.venv\Scripts\python -m pytest -q` → 55 passed.
+**Next:** M2 edge (`nazar/edge/*`), run on samples/clip1.mp4 with --preview, visual self-review.
