@@ -104,6 +104,7 @@ class AskResponse(BaseModel):
     gaps: list[dict] = []
     followups: list[str] = []
     cost_usd: float = 0.0
+    cost_inr: float = 0.0
     latency_ms: int = 0
 
 

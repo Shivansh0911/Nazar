@@ -215,10 +215,25 @@ def progress(camera_id: str):
             "error": job["error"], "note": job.get("note"), "job_id": job["id"]}
 
 
+def lan_ip() -> str | None:
+    """The laptop's LAN address (a phone on the same Wi-Fi can't reach 'localhost'). No packet is sent."""
+    import socket
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sk:
+            sk.connect(("10.255.255.255", 1))
+            ip = sk.getsockname()[0]
+        return None if ip.startswith("127.") else ip
+    except OSError:
+        return None
+
+
 @router.get("/phone-setup/{camera_id}")
 def phone_setup(camera_id: str):
     """Connection URLs for Larix Broadcaster and the RTSP source the edge reads."""
     s = get_settings()
     host = s.PUBLIC_HOST or s.API_BASE_URL.split("//")[-1].split(":")[0].split("/")[0]
+    if host in ("localhost", "127.0.0.1", "0.0.0.0", ""):
+        host = lan_ip() or host
     return {"srt": f"srt://{host}:8890?streamid=publish:{camera_id}", "rtmp": f"rtmp://{host}/{camera_id}",
             "source_url": f"rtsp://{s.MEDIAMTX_HOST}:8554/{camera_id}", "host": host}

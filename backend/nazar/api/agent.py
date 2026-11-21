@@ -403,6 +403,7 @@ def ask(question: str, camera_id: str | None, *, token: str | None, transcript: 
     resp = {"query_id": 0, "transcript": transcript, "language": lang, "reply_text": answer.reply_text,
             "audio_url": storage.url(audio.get("key"), token), "count": parts["count"], "clips": parts["clips"],
             "rule": parts["rule"], "gaps": parts["gaps"], "followups": answer.followups[:3], "cost_usd": round(cost, 6),
+            "cost_inr": round(cost * get_settings().USD_INR, 4),
             "latency_ms": latency}
     plan = [{"index": c["index"], "name": c["name"], "args": c["args"]} for c in calls]
     stored = {k: v for k, v in resp.items() if k != "audio_url"} | {"audio_key": audio.get("key")}

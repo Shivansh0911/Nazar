@@ -1,0 +1,9 @@
+{
+  "name": "Nazar — ask your CCTV anything",
+  "short_name": "Nazar",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#0B5FFF",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
