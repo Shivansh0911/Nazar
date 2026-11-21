@@ -174,6 +174,11 @@ def main(argv=None) -> int:
     segs = SegmentWriter(args.camera, s.SEGMENT_FPS, s.SEGMENT_SECONDS, s.SEGMENT_WIDTH)
     snap = Snapshot(args.camera)
     gate = MotionGate(s.MOTION_THRESH)
+    ov = None
+    if src.live or args.simulate_live:  # YOLOE loads only once the camera has an active custom object
+        from ..api.teach import OpenVocab
+
+        ov = OpenVocab(args.camera)
     preview = Preview(str(s.data_dir / f"preview_{args.camera}.mp4"), zones) if args.preview else None
     if args.job:
         db.execute("UPDATE jobs SET state='processing', updated_at=now() WHERE id=%s", (args.job,))
@@ -210,6 +215,12 @@ def main(argv=None) -> int:
                 if gate.moving(img) or tracks.active:
                     t0 = time.perf_counter()
                     dets = detector.track(img)
+                    if ov is not None and n_det % 3 == 0 and ov.refresh():
+                        try:
+                            dets = dets + ov.detect(img)  # taught objects (YOLOE), ~1.7 fps at 5 fps detection
+                        except Exception as e:
+                            log.warning('open-vocab detection failed: %s', e)
+                            ov = None
                     det_time += time.perf_counter() - t0
                     n_det += 1
                     hb.count(dets=1)

@@ -1,233 +1,170 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Mic, Trash2 } from "lucide-react";
-import { api } from "@/lib/api";
-import { fmtDuration } from "@/lib/format";
-import type { AlertOut, AskResponse } from "@/lib/types";
-import { Composer } from "@/components/Composer";
-import { ClipPlayer, type ClipTarget } from "@/components/ClipPlayer";
-import { AlertBubble, AudioReply, ClipCard, CountCard, GapNote, RuleCard } from "@/components/cards";
-import { ErrorBox, Spinner, TopBar } from "@/components/ui";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { ArrowRight, Bell, Cctv, FileSpreadsheet, Mic, Search, ShieldAlert, Smartphone, Sparkles, Upload } from "lucide-react";
+import { api2 } from "@/lib/api2";
+import { mjpegUrl, snapshotUrl } from "@/lib/api";
+import { fmtDayTime, fmtTime } from "@/lib/format";
+import type { Digest } from "@/lib/types2";
+import { AudioReply } from "@/components/cards";
+import { Card, Empty, LevelBadge, Page, Skeleton } from "@/components/ui";
 import { useApp } from "@/components/Providers";
 
-type Msg =
-  | { id: string; role: "user"; text?: string; voiceSeconds?: number; transcript?: string | null }
-  | { id: string; role: "nazar"; resp?: AskResponse; pending?: boolean; error?: string; autoPlay?: boolean }
-  | { id: string; role: "alert"; alert: AlertOut; autoPlay?: boolean };
+function greeting() {
+  const h = Number(new Date().toLocaleString("en-IN", { hour: "numeric", hour12: false, timeZone: "Asia/Kolkata" }));
+  return h < 5 ? "Late night watch" : h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+}
 
-const SUGGESTIONS = [
-  "Aaj kitne log aaye?",
-  "Kal raat 10 baje ke baad shop counter pe kitne log aaye?",
-  "Show people carrying a bag",
-  "Desk 14 se bag kisne uthaya?",
-  "Jab bhi koi desk 14 se bag uthaye, mujhe batana",
-  "रात 2 बजे के बाद night stall पर कितने लोग आए?",
-];
-const STORE = "nazar_chat_v1";
-const uid = () => Math.random().toString(36).slice(2);
-
-export default function ChatPage() {
-  const { cameras, onAlert } = useApp();
-  const [camera, setCamera] = useState<string>("");
-  const [msgs, setMsgs] = useState<Msg[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState<ClipTarget | null>(null);
-  const bottom = useRef<HTMLDivElement>(null);
-  const loaded = useRef(false);
+export default function TodayPage() {
+  const router = useRouter();
+  const { cameras, camerasLoading, alerts } = useApp();
+  const [q, setQ] = useState("");
+  const [digest, setDigest] = useState<Digest | null>(null);
+  const [digestErr, setDigestErr] = useState(false);
 
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORE) || "[]") as Msg[];
-      setMsgs(saved.filter((m) => !(m.role === "nazar" && m.pending)).map((m) => ({ ...m, autoPlay: false }) as Msg));
-    } catch {
-      /* ignore */
-    }
-    const p = new URLSearchParams(window.location.search).get("camera");
-    if (p) setCamera(p);
-    loaded.current = true;
+    api2.digest().then(setDigest).catch(() => setDigestErr(true));
   }, []);
 
-  useEffect(() => {
-    if (!loaded.current) return;
-    try {
-      localStorage.setItem(STORE, JSON.stringify(msgs.filter((m) => !(m.role === "nazar" && m.pending)).slice(-40)));
-    } catch {
-      /* ignore */
-    }
-  }, [msgs]);
-
-  useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [msgs]);
-
-  // live alerts arrive as red bubbles
-  useEffect(
-    () =>
-      onAlert((a, update) => {
-        if (a.suppressed) return;
-        setMsgs((prev) => {
-          const i = prev.findIndex((m) => m.role === "alert" && m.alert.id === a.id);
-          if (i >= 0) {
-            const copy = [...prev];
-            copy[i] = { id: prev[i].id, role: "alert", alert: a, autoPlay: update && !!a.audio_url };
-            return copy;
-          }
-          return [...prev, { id: uid(), role: "alert", alert: a, autoPlay: !!a.audio_url }];
-        });
-      }),
-    [onAlert],
-  );
-
-  const runAsk = useCallback(
-    async (p: Promise<AskResponse>, userId: string) => {
-      const nid = uid();
-      setMsgs((m) => [...m, { id: nid, role: "nazar", pending: true }]);
-      setBusy(true);
-      try {
-        const resp = await p;
-        setMsgs((m) =>
-          m.map((x) => {
-            if (x.id === nid) return { id: nid, role: "nazar", resp, autoPlay: true };
-            if (x.id === userId && x.role === "user" && resp.transcript) return { ...x, transcript: resp.transcript };
-            return x;
-          }),
-        );
-      } catch (e) {
-        setMsgs((m) => m.map((x) => (x.id === nid ? { id: nid, role: "nazar", error: (e as Error).message } : x)));
-      } finally {
-        setBusy(false);
-      }
-    },
-    [],
-  );
-
-  const askText = (text: string) => {
-    const id = uid();
-    setMsgs((m) => [...m, { id, role: "user", text }]);
-    runAsk(api.askText(text, camera || null), id);
-  };
-
-  const askVoice = (blob: Blob, filename: string, seconds: number) => {
-    const id = uid();
-    setMsgs((m) => [...m, { id, role: "user", voiceSeconds: seconds }]);
-    runAsk(api.askVoice(blob, filename, camera || null), id);
-  };
+  const ask = (text: string) => router.push(`/ask/?q=${encodeURIComponent(text)}`);
+  const open = alerts.filter((a) => !a.ack && !a.suppressed).slice(0, 3);
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <TopBar>
-        <select
-          value={camera}
-          onChange={(e) => setCamera(e.target.value)}
-          className="max-w-[9.5rem] rounded-full border border-line bg-background px-3 py-1.5 text-sm"
-          aria-label="Camera"
-        >
-          <option value="">All cameras</option>
-          {cameras.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.live ? "● " : ""}
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </TopBar>
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-3">
-        <div className="flex-1 space-y-3 py-4">
-          {msgs.length === 0 && (
-            <div className="mt-6 text-center">
-              <div className="text-2xl font-semibold tracking-tight">Ask your CCTV anything</div>
-              <div className="mt-1 text-sm text-muted">Tap the lime mic and speak in Hindi, English or Hinglish — or try one of these:</div>
-              <div className="mt-5 flex flex-wrap justify-center gap-2">
-                {SUGGESTIONS.map((s) => (
-                  <button key={s} onClick={() => askText(s)} disabled={busy}
-                    className="rounded-full border border-line bg-surface px-3 py-2 text-sm hover:border-primary hover:text-primary">
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {msgs.map((m) => {
-            if (m.role === "user")
-              return (
-                <div key={m.id} className="flex justify-end">
-                  <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary px-3.5 py-2 text-white">
-                    {m.voiceSeconds !== undefined ? (
-                      <div>
-                        <div className="flex items-center gap-1.5 text-sm"><Mic size={14} /> voice note {fmtDuration(m.voiceSeconds)}</div>
-                        {m.transcript && <div className="mt-1 text-[13px] text-white/85">“{m.transcript}”</div>}
-                      </div>
-                    ) : (
-                      <div className="text-[15px]">{m.text}</div>
-                    )}
-                  </div>
-                </div>
-              );
-            if (m.role === "alert")
-              return (
-                <div key={m.id} className="max-w-[92%]">
-                  <AlertBubble alert={m.alert} onOpen={setOpen} autoPlay={!!m.autoPlay} />
-                </div>
-              );
-            return (
-              <div key={m.id} className="flex justify-start">
-                <div className="w-full max-w-[92%] space-y-2 rounded-2xl rounded-bl-md border border-line bg-surface p-3 shadow-sm">
-                  {m.pending && <Spinner label="Watching the footage…" />}
-                  {m.error && <ErrorBox message={m.error} />}
-                  {m.resp && <Answer resp={m.resp} autoPlay={!!m.autoPlay} onOpen={setOpen} onFollow={askText} busy={busy} />}
-                </div>
-              </div>
-            );
-          })}
-          <div ref={bottom} />
-        </div>
-        {msgs.length > 0 && (
-          <div className="flex justify-center pb-2">
-            <button onClick={() => setMsgs([])} className="inline-flex items-center gap-1 text-xs text-muted hover:text-danger">
-              <Trash2 size={12} /> Clear chat
-            </button>
-          </div>
-        )}
-      </main>
-      <div className="sticky bottom-0 z-20 mx-auto w-full max-w-3xl">
-        <Composer onText={askText} onVoice={askVoice} busy={busy} />
+    <Page>
+      <div className="mb-6">
+        <div className="text-sm text-muted">{greeting()}</div>
+        <h1 className="font-display mt-1 text-4xl md:text-5xl">What happened while you were away?</h1>
+        <form onSubmit={(e) => { e.preventDefault(); if (q.trim()) ask(q.trim()); }}
+          className="mt-4 flex items-center gap-2 rounded-full border border-line bg-surface p-1.5 pl-4 shadow-[0_8px_30px_rgba(0,0,0,.25)]">
+          <Search size={18} className="shrink-0 text-muted" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ask anything — “raat 2 baje ke baad counter pe kitne log aaye?”"
+            aria-label="Ask anything" className="min-w-0 flex-1 bg-transparent py-2 text-[15px] outline-none" />
+          <Link href="/ask/" aria-label="Ask with your voice" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-lime text-slate-900"><Mic size={18} /></Link>
+          <button type="submit" className="hidden rounded-full bg-primary px-4 py-2 text-sm font-medium text-white sm:block">Ask</button>
+        </form>
       </div>
-      {open && <ClipPlayer target={open} onClose={() => setOpen(null)} />}
-    </div>
+
+      {!camerasLoading && cameras.length === 0 ? <FirstRun /> : (
+        <div className="grid gap-5 lg:grid-cols-[1fr_22rem]">
+          <div className="min-w-0 space-y-5">
+            <section>
+              <div className="mb-2 flex items-center"><h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Cameras</h2>
+                <Link href="/cameras/new/" className="ml-auto text-xs text-primary">+ Add camera</Link></div>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                {camerasLoading && [0, 1, 2].map((i) => <Skeleton key={i} className="aspect-[4/3]" />)}
+                {cameras.map((c, i) => {
+                  const tot = digest?.totals?.find((t) => t.camera_id === c.id);
+                  const normal = tot?.normal;
+                  const shownCount = c.today_count || tot?.people || 0;
+                  const countLabel = c.today_count ? "people today" : tot ? "people · last 12 h of footage" : "people today";
+                  return (
+                    <motion.div key={c.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
+                      <Link href={`/camera/?id=${encodeURIComponent(c.id)}`} className="group block overflow-hidden rounded-3xl border border-line bg-surface hover:border-primary/60">
+                        <div className="relative aspect-video bg-black">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={c.live ? mjpegUrl(c.id) : snapshotUrl(c.id)} alt={c.name} loading="lazy" className="h-full w-full object-cover opacity-90 group-hover:opacity-100"
+                            onError={(e) => ((e.target as HTMLImageElement).style.opacity = "0")} />
+                          <span className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold ${c.live ? "bg-danger text-white" : "bg-black/60 text-white/90"}`}>
+                            {c.live ? <><span className="live-dot">●</span> LIVE</> : c.kind === "file" ? "RECORDED" : "OFFLINE"}
+                          </span>
+                        </div>
+                        <div className="p-3">
+                          <div className="truncate text-sm font-medium">{c.name}</div>
+                          <div className="mt-0.5 flex items-baseline gap-1.5">
+                            <span className="font-display text-2xl">{shownCount}</span>
+                            <span className="truncate text-xs text-muted">{countLabel}{typeof normal === "number" && c.today_count ? ` · normal ${normal}` : ""}</span>
+                          </div>
+                          <div className="truncate text-[11px] text-muted">{c.coverage_to ? `last footage ${fmtDayTime(c.coverage_to)}` : "no footage yet"}</div>
+                        </div>
+                      </Link>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </section>
+            <section className="grid gap-3 sm:grid-cols-3">
+              {[
+                { t: "Kal raat counter pe kitne log aaye?", d: "Count with receipts" },
+                { t: "Show me a green backpack", d: "Visual search, AI-verified" },
+                { t: "Which hour was busiest on each camera?", d: "Any analysis, with the SQL" },
+              ].map((x) => (
+                <button key={x.t} onClick={() => ask(x.t)} className="rounded-3xl border border-line bg-surface p-4 text-left hover:border-primary/60">
+                  <Sparkles size={16} className="text-primary" />
+                  <div className="mt-2 text-sm font-medium">{x.t}</div>
+                  <div className="text-xs text-muted">{x.d}</div>
+                </button>
+              ))}
+            </section>
+          </div>
+          <div className="space-y-5">
+            <Card>
+              <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><Sparkles size={16} className="text-lime" /> Overnight digest</div>
+              {!digest && !digestErr && <div className="space-y-2"><Skeleton className="h-4 w-3/4" /><Skeleton className="h-4 w-2/3" /><Skeleton className="h-4 w-1/2" /></div>}
+              {digestErr && <div className="text-sm text-muted">The digest is prepared every morning at 8:00. Ask “aaj raat kya hua?” any time.</div>}
+              {digest && (
+                <div className="space-y-2">
+                  <p className="text-sm leading-relaxed">{digest.text}</p>
+                  {digest.audio_url && <AudioReply url={digest.audio_url} autoPlay={false} />}
+                  {digest.anomalies.slice(0, 3).map((a, i) => (
+                    <div key={i} className="rounded-xl bg-amber/10 px-3 py-2 text-xs"><b>{a.camera_id}</b> · {fmtTime(a.hour)}: {a.count} people vs {a.normal} usual{a.note ? ` (${a.note})` : ""}</div>
+                  ))}
+                  {digest.items.slice(0, 4).map((e) => (
+                    <div key={e.id} className="flex items-center gap-2 text-xs"><LevelBadge level={e.level} /><span>{e.type.replace(/_/g, " ")}</span><span className="ml-auto text-muted">{e.camera_id} · {fmtTime(e.t)}</span></div>
+                  ))}
+                </div>
+              )}
+            </Card>
+            <Card>
+              <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><Bell size={16} className="text-danger" /> Alerts
+                <Link href="/alerts/" className="ml-auto text-xs font-normal text-primary">All <ArrowRight size={12} className="inline" /></Link></div>
+              {open.length === 0 ? <div className="text-sm text-muted">No open alerts.</div> : open.map((a) => (
+                <Link key={a.id} href="/alerts/" className="mb-2 flex gap-2 rounded-2xl border border-danger/40 p-2 last:mb-0 hover:bg-surface-2">
+                  {a.snapshot_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={a.snapshot_url} alt="" className="h-12 w-16 rounded-lg object-cover" />
+                  )}
+                  <div className="min-w-0"><div className="line-clamp-2 text-xs">{a.message}</div><div className="text-[10px] text-muted">{fmtDayTime(a.t)}</div></div>
+                </Link>
+              ))}
+            </Card>
+            <Card className="!p-0 overflow-hidden">
+              <Link href="/alerts/" className="flex items-center gap-3 p-4 hover:bg-surface-2">
+                <ShieldAlert size={20} className="text-primary" />
+                <div><div className="text-sm font-medium">Security pack</div><div className="text-xs text-muted">Loitering, abandoned bag, running, fall, crowding, after-hours</div></div>
+                <ArrowRight size={16} className="ml-auto text-muted" />
+              </Link>
+            </Card>
+          </div>
+        </div>
+      )}
+    </Page>
   );
 }
 
-function Answer({ resp, autoPlay, onOpen, onFollow, busy }: {
-  resp: AskResponse; autoPlay: boolean; onOpen: (t: ClipTarget) => void; onFollow: (t: string) => void; busy: boolean;
-}) {
+function FirstRun() {
+  const opts = [
+    { href: "/cameras/new/?tab=upload", icon: Upload, t: "Upload a video", d: "Any MP4/MOV/DVR export — analysed in minutes" },
+    { href: "/cameras/new/?tab=rtsp", icon: Cctv, t: "Connect CCTV", d: "Hikvision, Dahua, CP Plus or any RTSP" },
+    { href: "/cameras/new/?tab=phone", icon: Smartphone, t: "Use a phone", d: "Stream from Larix with a QR code" },
+    { href: "/cameras/new/?tab=excel", icon: FileSpreadsheet, t: "Import from Excel", d: "Add many cameras at once" },
+  ];
   return (
-    <>
-      <div className="text-[15px] leading-relaxed">{resp.reply_text}</div>
-      {resp.audio_url && <AudioReply url={resp.audio_url} autoPlay={autoPlay} />}
-      {resp.count && <CountCard count={resp.count} />}
-      {resp.clips.length > 0 && (
-        <div className="space-y-2">
-          {resp.clips.map((c) => (
-            <ClipCard key={c.track_id} clip={c} onOpen={onOpen} />
-          ))}
-        </div>
-      )}
-      {resp.rule && <RuleCard rule={resp.rule} onOpen={onOpen} />}
-      <GapNote gaps={resp.gaps} />
-      {resp.followups.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 pt-1">
-          {resp.followups.map((f) => (
-            <button key={f} disabled={busy} onClick={() => onFollow(f)}
-              className="rounded-full bg-primary-soft px-3 py-1 text-xs text-primary hover:bg-primary hover:text-white">
-              {f}
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="text-[10px] text-muted">
-        {(resp.latency_ms / 1000).toFixed(1)} s · ₹{(resp.cost_inr ?? 0).toFixed(2)}
+    <div>
+      <Empty title="No cameras yet">Start with any of these. Every face is blurred before anything is saved or shown.</Empty>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {opts.map(({ href, icon: Icon, t, d }) => (
+          <Link key={href} href={href} className="flex items-center gap-4 rounded-3xl border border-line bg-surface p-5 hover:border-primary">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-soft text-primary"><Icon size={22} /></div>
+            <div><div className="font-medium">{t}</div><div className="text-xs text-muted">{d}</div></div>
+          </Link>
+        ))}
       </div>
-    </>
+      <div className="mt-4 rounded-3xl border border-dashed border-line p-4 text-sm text-muted">
+        Demo footage: run <code className="rounded bg-surface-2 px-1">python scripts/demo_setup.py</code> to load 7 sample cameras (incl. the Builders venue clip).
+      </div>
+    </div>
   );
 }

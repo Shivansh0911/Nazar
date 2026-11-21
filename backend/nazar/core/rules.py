@@ -42,8 +42,17 @@ class TimeWindow(BaseModel):
 class RuleSpec(BaseModel):
     camera_id: str
     trigger: Trigger
-    cls: RuleCls
+    cls: str  # a RuleCls, or "custom:<name>" for an object taught by voice/photo (open-vocabulary, W4)
     zone: str
+
+    @field_validator("cls")
+    @classmethod
+    def _cls(cls, v: str) -> str:
+        import re
+
+        if v in RuleCls.__args__ or re.fullmatch(r"custom:[a-z0-9_]{2,40}", v):  # type: ignore[attr-defined]
+            return v
+        raise ValueError(f"unknown class {v!r}")
     dwell_s: int | None = None
     count: int | None = None
     time_window: TimeWindow | None = None
@@ -58,7 +67,7 @@ class RuleSpec(BaseModel):
         if self.trigger == "count_over":
             if self.count is None or self.count < 1:
                 raise ValueError("count_over needs count >= 1")
-        if self.trigger == "object_removed" and self.cls not in OBJECTS and self.cls != "any_bag":
+        if self.trigger == "object_removed" and self.cls not in OBJECTS and self.cls != "any_bag" and not self.cls.startswith("custom:"):
             raise ValueError("object_removed needs an object class (bag, laptop, phone, bottle)")
         if self.confirm_with_vision is not None and not self.confirm_with_vision.strip():
             self.confirm_with_vision = None

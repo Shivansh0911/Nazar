@@ -83,7 +83,7 @@ function CameraCard({ cam, onChanged }: { cam: CameraOut; onChanged: () => void 
             className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium disabled:opacity-60 ${cam.edge_running ? "border border-line" : "bg-primary text-white"}`}>
             {cam.edge_running ? <><Square size={12} /> Stop</> : <><Play size={12} /> {cam.kind === "file" ? "Play as live" : "Start"}</>}
           </button>
-          <Link href={`/?camera=${encodeURIComponent(cam.id)}`} className="rounded-full bg-primary-soft px-3 py-1 text-xs font-medium text-primary">Ask</Link>
+          <Link href={`/ask/?camera=${encodeURIComponent(cam.id)}`} className="rounded-full bg-primary-soft px-3 py-1 text-xs font-medium text-primary">Ask</Link>
         </div>
       </div>
     </div>

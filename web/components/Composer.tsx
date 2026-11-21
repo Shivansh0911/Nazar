@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Mic, SendHorizontal, Square } from "lucide-react";
+import { Camera, Mic, SendHorizontal, Square } from "lucide-react";
 
 const MAX_S = 30;
 
@@ -21,8 +21,10 @@ export function Composer({
   onText,
   onVoice,
   busy,
+  onPhoto,
   placeholder = "Ask in Hindi, English or Hinglish…",
 }: {
+  onPhoto?: () => void;
   onText: (t: string) => void;
   onVoice: (blob: Blob, filename: string, seconds: number) => void;
   busy: boolean;
@@ -119,7 +121,7 @@ export function Composer({
   };
 
   return (
-    <div className="border-t border-line bg-surface/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur">
+    <div className="glass border-t border-line px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
       {micErr && <div className="mb-2 text-xs text-danger">{micErr}</div>}
       <div className="flex items-center gap-2">
         <button
@@ -131,7 +133,7 @@ export function Composer({
           {rec ? <Square size={22} fill="currentColor" /> : <Mic size={26} />}
         </button>
         {rec ? (
-          <div className="flex flex-1 items-center gap-3 rounded-full bg-background px-4 py-3">
+          <div className="flex flex-1 items-center gap-3 rounded-full bg-surface-2 px-4 py-3">
             <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-danger" />
             <span className="font-mono text-sm tabular-nums">
               0:{String(Math.floor(secs)).padStart(2, "0")} / 0:{MAX_S}
@@ -143,12 +145,18 @@ export function Composer({
           </div>
         ) : (
           <>
+            {onPhoto && (
+              <button onClick={onPhoto} disabled={busy} aria-label="Search by photo" title="Search by photo"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line text-muted hover:border-primary hover:text-primary disabled:opacity-50">
+                <Camera size={20} />
+              </button>
+            )}
             <input
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && send()}
               placeholder={placeholder}
-              className="min-w-0 flex-1 rounded-full border border-line bg-background px-4 py-3 text-[15px] outline-none focus:border-primary"
+              className="min-w-0 flex-1 rounded-full border border-line bg-surface-2 px-4 py-3 text-[15px] outline-none focus:border-primary"
               disabled={busy}
             />
             <button

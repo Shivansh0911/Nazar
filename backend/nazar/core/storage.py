@@ -42,7 +42,8 @@ def _s3():
     return boto3.client("s3", region_name=get_settings().AWS_REGION)
 
 
-_CT = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".mp4": "video/mp4", ".mp3": "audio/mpeg", ".png": "image/png"}
+_CT = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".mp4": "video/mp4", ".mp3": "audio/mpeg", ".png": "image/png",
+       ".pdf": "application/pdf", ".json": "application/json"}
 
 
 def put(src: str | os.PathLike, key: str, delete_src: bool = False) -> str:

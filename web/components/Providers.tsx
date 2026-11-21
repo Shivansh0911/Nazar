@@ -17,6 +17,9 @@ interface Ctx {
   setSoundOn: (v: boolean) => void;
   audioUnlocked: boolean;
   play: (url: string) => Promise<boolean>;
+  theme: "dark" | "light";
+  setTheme: (t: "dark" | "light") => void;
+  toast: (msg: string, kind?: "ok" | "err") => void;
 }
 
 const AppCtx = createContext<Ctx | null>(null);
@@ -44,6 +47,26 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [audioUnlocked, setAudioUnlocked] = useState(false);
   const listeners = useRef(new Set<(a: AlertOut, update: boolean) => void>());
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [theme, setThemeState] = useState<"dark" | "light">("dark");
+  const [toasts, setToasts] = useState<{ id: number; msg: string; kind: "ok" | "err" }[]>([]);
+  useEffect(() => {
+    setThemeState(document.documentElement.dataset.theme === "light" ? "light" : "dark");
+  }, []);
+  const setTheme = (t: "dark" | "light") => {
+    setThemeState(t);
+    if (t === "light") document.documentElement.dataset.theme = "light";
+    else delete document.documentElement.dataset.theme;
+    try {
+      localStorage.setItem("nazar_theme", t);
+    } catch {
+      /* ignore */
+    }
+  };
+  const toast = useCallback((msg: string, kind: "ok" | "err" = "ok") => {
+    const id = Date.now() + Math.random();
+    setToasts((t) => [...t, { id, msg, kind }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4000);
+  }, []);
 
   // auth gate
   useEffect(() => {
@@ -181,9 +204,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
   if (!ready && !isLogin) return <div className="min-h-dvh" />;
   return (
     <AppCtx.Provider
-      value={{ cameras, camerasError, camerasLoading, refreshCameras, alerts, wsConnected, onAlert, soundOn, setSoundOn, audioUnlocked, play }}
+      value={{ cameras, camerasError, camerasLoading, refreshCameras, alerts, wsConnected, onAlert, soundOn, setSoundOn, audioUnlocked, play, theme, setTheme, toast }}
     >
       {children}
+      <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-20 z-[60] flex flex-col items-center gap-2 px-4 md:bottom-6">
+        {toasts.map((t) => (
+          <div key={t.id} className={`pointer-events-auto rounded-2xl px-4 py-2.5 text-sm shadow-lg ${t.kind === "err" ? "bg-danger text-white" : "bg-foreground text-background"}`}>{t.msg}</div>
+        ))}
+      </div>
     </AppCtx.Provider>
   );
 }

@@ -8,16 +8,18 @@ const TOKEN_KEY = "nazar_token";
 
 export function getToken(): string | null {
   try {
-    return localStorage.getItem(TOKEN_KEY);
+    return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
   } catch {
     return null;
   }
 }
 
-export function setToken(t: string | null) {
+/** remember=true keeps the token on this device; false keeps it only for this browser session. */
+export function setToken(t: string | null, remember = true) {
   try {
-    if (t) localStorage.setItem(TOKEN_KEY, t);
-    else localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
+    if (t) (remember ? localStorage : sessionStorage).setItem(TOKEN_KEY, t);
   } catch {
     /* private mode */
   }

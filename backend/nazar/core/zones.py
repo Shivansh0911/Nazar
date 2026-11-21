@@ -31,6 +31,15 @@ def clean_zones(zones: list) -> list[dict]:
             continue
         pts = [[round(min(1.0, max(0.0, float(p[0]))), 4), round(min(1.0, max(0.0, float(p[1]))), 4)]
                for p in zi.polygon if len(p) >= 2]
+        ztype = z.get("type") if isinstance(z, dict) else None
+        if ztype == "line":  # count line: exactly two points + the "in" side
+            if len(pts) < 2:
+                continue
+            seen.add(name)
+            d = z.get("direction") if z.get("direction") in ("left", "right") else "right"
+            out.append({"name": name, "label": (zi.label or name.replace("_", " ").title())[:40], "polygon": pts[:2],
+                        "type": "line", "direction": d})
+            continue
         if len(pts) < 3:
             continue
         seen.add(name)

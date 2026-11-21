@@ -8,7 +8,9 @@ import { fmtDayTime, fmtTime } from "@/lib/format";
 import type { CameraOut, CountResult, Gap, TrackOut } from "@/lib/types";
 import { ClipPlayer, type ClipTarget } from "@/components/ClipPlayer";
 import { ZoneEditor } from "@/components/ZoneEditor";
-import { Card, Empty, ErrorBox, MiniBars, Page, Spinner } from "@/components/ui";
+import { Btn, Card, Empty, ErrorBox, Page, Spinner, inputCls } from "@/components/ui";
+import { ActivityChart } from "@/components/charts";
+import { api2 } from "@/lib/api2";
 
 export default function CameraPage() {
   const [id, setId] = useState<string | null>(null);
@@ -70,12 +72,12 @@ export default function CameraPage() {
           <button onClick={toggle} disabled={busy} className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm ${cam.edge_running ? "border border-line" : "bg-primary text-white"}`}>
             {cam.edge_running ? <><Square size={14} /> Stop</> : <><Play size={14} /> {cam.kind === "file" ? "Play as live" : "Start"}</>}
           </button>
-          <Link href={`/?camera=${encodeURIComponent(cam.id)}`} className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-3 py-1.5 text-sm text-primary"><MessageCircle size={14} /> Ask</Link>
+          <Link href={`/ask/?camera=${encodeURIComponent(cam.id)}`} className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-3 py-1.5 text-sm text-primary"><MessageCircle size={14} /> Ask</Link>
         </div>
       </div>
       <div className="grid gap-4 lg:grid-cols-[3fr,2fr]">
         <Card>
-          <div className="mb-2 text-sm font-medium">Zones <span className="font-normal text-muted">— where Nazar counts entries and watches rules</span></div>
+          <div className="mb-2 text-sm font-medium">Zones &amp; count lines <span className="font-normal text-muted">— where Nazar counts, watches rules and counts people coming in</span></div>
           <ZoneEditor
             key={cam.id}
             imageUrl={cam.live ? mjpegUrl(cam.id) : snapshotUrl(cam.id)}
@@ -88,10 +90,10 @@ export default function CameraPage() {
         <div className="space-y-4">
           <Card>
             <div className="flex items-baseline justify-between">
-              <div className="text-sm font-medium">People per hour</div>
+              <div className="text-sm font-medium">Activity</div>
               <div className="text-xs text-muted">{timeline ? `${timeline.value} in 24 h` : ""}</div>
             </div>
-            {timeline ? <div className="mt-2"><MiniBars series={timeline.series} /></div> : <Spinner />}
+            {timeline ? <div className="mt-2"><ActivityChart series={timeline.series} bucket={timeline.bucket} height={120} /></div> : <Spinner />}
             <div className="mt-2 text-xs text-muted">
               Footage: {cam.coverage_from ? `${fmtDayTime(cam.coverage_from)} → ${fmtDayTime(cam.coverage_to)}` : "none yet"}
             </div>
@@ -102,6 +104,7 @@ export default function CameraPage() {
               </div>
             )}
           </Card>
+          <TeachCard cameraId={cam.id} />
           <Card>
             <div className="mb-2 text-sm font-medium">Recent tracks</div>
             {!tracks ? <Spinner /> : tracks.length === 0 ? <div className="text-sm text-muted">No tracks yet.</div> : (
@@ -123,5 +126,50 @@ export default function CameraPage() {
       </div>
       {open && <ClipPlayer target={open} onClose={() => setOpen(null)} />}
     </Page>
+  );
+}
+
+function TeachCard({ cameraId }: { cameraId: string }) {
+  const [items, setItems] = useState<{ id: number; name: string; active: boolean }[]>([]);
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const load = useCallback(() => { api2.customObjects(cameraId).then((r) => setItems(r.filter((x) => x.active))).catch(() => undefined); }, [cameraId]);
+  useEffect(() => { load(); }, [load]);
+  const teach = async () => {
+    if (!name.trim()) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await api2.teach(cameraId, name.trim());
+      setMsg(r.message);
+      setName("");
+      load();
+    } catch (e) {
+      setMsg((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Card>
+      <div className="mb-1 text-sm font-medium">Teach it an object</div>
+      <div className="mb-2 text-xs text-muted">Gas cylinder, helmet, cardboard box… Nazar checks the stored frames first, then watches live (open-vocabulary YOLOE, no training).</div>
+      <div className="flex gap-2">
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. gas cylinder" className={inputCls} aria-label="Object to watch for" />
+        <Btn onClick={teach} disabled={busy || !name.trim()}>{busy ? "Checking…" : "Teach"}</Btn>
+      </div>
+      {msg && <div className="mt-2 text-xs">{msg}</div>}
+      {items.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {items.map((o) => (
+            <span key={o.id} className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2.5 py-1 text-xs text-primary">
+              {o.name}
+              <button aria-label={"Stop watching " + o.name} onClick={async () => { await api2.deleteCustomObject(o.id); load(); }} className="text-muted hover:text-danger">×</button>
+            </span>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }

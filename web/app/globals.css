@@ -1,32 +1,41 @@
 @import "tailwindcss";
 
+/* "Night watch": dark first, light theme on request. Levels differ by shape, not only colour. */
 :root {
-  --background: #f5f7fb;
-  --surface: #ffffff;
-  --foreground: #0f172a;
-  --muted: #64748b;
-  --line: #e2e8f0;
-  --primary: #0b5fff;
-  --primary-soft: #e8efff;
+  --background: #0a0f1f;
+  --surface: #111827;
+  --surface-2: #172036;
+  --foreground: #e7ebf3;
+  --muted: #8b96ad;
+  --line: #222d47;
+  --primary: #2f6bff;
+  --primary-soft: rgba(47, 107, 255, 0.16);
   --lime: #d4f53c;
-  --danger: #e11d48;
+  --danger: #f43f5e;
+  --success: #10b981;
+  --amber: #f59e0b;
+  color-scheme: dark;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0b1020;
-    --surface: #121a2e;
-    --foreground: #e5e9f3;
-    --muted: #94a3b8;
-    --line: #23304d;
-    --primary: #3d7dff;
-    --primary-soft: #16244a;
-  }
+:root[data-theme="light"] {
+  --background: #f3f5fa;
+  --surface: #ffffff;
+  --surface-2: #f6f8fc;
+  --foreground: #0b1222;
+  --muted: #5b6680;
+  --line: #e2e7f0;
+  --primary: #2f6bff;
+  --primary-soft: #e8eeff;
+  --danger: #e11d48;
+  --success: #059669;
+  --amber: #d97706;
+  color-scheme: light;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-line: var(--line);
@@ -34,7 +43,10 @@
   --color-primary-soft: var(--primary-soft);
   --color-lime: var(--lime);
   --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-amber: var(--amber);
   --font-sans: var(--font-inter);
+  --font-display: var(--font-display);
 }
 
 html,
@@ -46,6 +58,11 @@ body {
   overflow-x: hidden;
 }
 
+.font-display {
+  font-family: var(--font-display), Georgia, serif;
+  letter-spacing: -0.01em;
+}
+
 .scroll-thin::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -55,10 +72,37 @@ body {
   border-radius: 9999px;
 }
 
+.glass {
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--line) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.3s linear infinite;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 @keyframes pulse-ring {
   0% { box-shadow: 0 0 0 0 rgba(212, 245, 60, 0.7); }
   100% { box-shadow: 0 0 0 18px rgba(212, 245, 60, 0); }
 }
 .mic-recording {
   animation: pulse-ring 1.2s ease-out infinite;
+}
+
+.live-dot {
+  animation: live 1.6s ease-in-out infinite;
+}
+@keyframes live {
+  50% { opacity: 0.35; }
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }

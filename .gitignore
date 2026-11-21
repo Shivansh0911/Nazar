@@ -35,3 +35,11 @@ runs/
 
 # recorded demo videos
 demo/
+
+# model weights / text encoders (downloaded)
+*.pt
+*.ts.bak
+backend/models/*.ts
+backend/*.ts
+*.engine
+*.onnx

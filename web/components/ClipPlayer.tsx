@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Search, X } from "lucide-react";
+import { MapPin, Search, X } from "lucide-react";
+import { api2 } from "@/lib/api2";
+import type { Journey } from "@/lib/types2";
+import { JourneyView } from "./evidence";
 import { api } from "@/lib/api";
 import { clsLabel, fmtDayTime } from "@/lib/format";
 import type { ClipOut, Level, TrackOut } from "@/lib/types";
@@ -37,6 +40,9 @@ export function ClipPlayer({ target, onClose }: { target: ClipTarget; onClose: (
   const [simLoading, setSimLoading] = useState(false);
   const [simNote, setSimNote] = useState<string | null>(null);
   const [current, setCurrent] = useState<ClipTarget>(target);
+  const [journey, setJourney] = useState<Journey | null>(null);
+  const [jLoading, setJLoading] = useState(false);
+  const [playErr, setPlayErr] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -44,6 +50,8 @@ export function ClipPlayer({ target, onClose }: { target: ClipTarget; onClose: (
     let alive = true;
     setClip(null);
     setErr(null);
+    setPlayErr(false);
+    setJourney(null);
     api
       .clipForTrack(current.track_id)
       .then((c) => alive && setClip(c))
@@ -117,7 +125,7 @@ export function ClipPlayer({ target, onClose }: { target: ClipTarget; onClose: (
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center" onClick={onClose}>
-      <div className="max-h-dvh w-full max-w-3xl overflow-y-auto rounded-t-3xl bg-surface p-3 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+      <div className="max-h-dvh w-full max-w-3xl overflow-y-auto rounded-t-3xl border border-line bg-surface p-3 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-2 flex items-center gap-2">
           <div className="min-w-0 flex-1">
             <div className="truncate font-medium">
@@ -133,7 +141,8 @@ export function ClipPlayer({ target, onClose }: { target: ClipTarget; onClose: (
         <div className="relative w-full overflow-hidden rounded-2xl bg-black" style={{ aspectRatio: "16 / 9" }}>
           {clip ? (
             <>
-              <video ref={videoRef} src={clip.url} controls autoPlay muted playsInline className="absolute inset-0 h-full w-full object-contain" />
+              <video ref={videoRef} src={clip.url} poster={(clip as { poster_url?: string }).poster_url || undefined} controls autoPlay muted playsInline onError={() => setPlayErr(true)} className="absolute inset-0 h-full w-full object-contain" />
+              {playErr && <div className="absolute inset-0 flex items-center justify-center bg-black/80 p-4 text-center text-sm text-white/85">This browser could not play the clip. Try Chrome/Safari, or the footage for that time is no longer stored.</div>}
               <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 h-full w-full" />
             </>
           ) : err ? (
@@ -158,8 +167,13 @@ export function ClipPlayer({ target, onClose }: { target: ClipTarget; onClose: (
           >
             <Search size={15} /> Find again
           </button>
-          <span className="text-xs text-muted">Same look, ±24 h (appearance fingerprint, no face recognition)</span>
+          <button onClick={async () => { setJLoading(true); try { setJourney(await api2.journey(current.track_id)); } catch (e) { setSimNote((e as Error).message); } finally { setJLoading(false); } }}
+            disabled={jLoading} className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-sm disabled:opacity-60">
+            <MapPin size={15} /> {jLoading ? "Following…" : "Journey"}
+          </button>
+          <span className="hidden text-xs text-muted sm:inline">Same look across cameras (clothes/objects only — no face recognition)</span>
         </div>
+        {journey && <div className="mt-3"><JourneyView journey={journey} onOpen={(t) => { setJourney(null); setCurrent(t); }} /></div>}
         {simLoading && <div className="mt-2"><Spinner label="Searching…" /></div>}
         {simNote && <div className="mt-2"><ErrorBox message={simNote} /></div>}
         {similar && !simLoading && (

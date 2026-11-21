@@ -5,7 +5,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -15,7 +15,7 @@ from ..core.config import get_settings
 from ..core.logging import setup_logging
 from ..core.migrate import migrate
 from . import (routes_alerts, routes_ask, routes_cameras, routes_clips, routes_live, routes_metrics, routes_rules,
-               routes_onboard, routes_search, routes_upload, routes_uploads, routes_visual, ws)
+               routes_onboard, routes_search, routes_upload, routes_uploads, routes_v2, routes_visual, ws)
 from .auth import issue, require_token
 from .deps import http_error, install_error_handlers
 from .edge_manager import get_manager
@@ -58,11 +58,24 @@ class AuthIn(BaseModel):
     passcode: str
 
 
+_fails: dict[str, list[float]] = {}
+
+
 @app.post("/api/auth")
-def auth(body: AuthIn):
+def auth(body: AuthIn, request: Request):
+    """Passcode -> token. At most 5 wrong attempts per minute per client address."""
+    import time as _t
+
+    ip = request.client.host if request.client else "?"
+    now = _t.time()
+    recent = [x for x in _fails.get(ip, []) if now - x < 60]
+    if len(recent) >= 5:
+        raise http_error(429, "too many wrong attempts - wait a minute and try again")
     tok = issue(body.passcode)
     if not tok:
+        _fails[ip] = recent + [now]
         raise http_error(401, "wrong passcode")
+    _fails.pop(ip, None)
     return {"token": tok}
 
 
@@ -90,11 +103,12 @@ def media(key: str):
         raise http_error(400, "bad key")
     if not p.exists() or not p.is_file():
         raise http_error(404, "not found")
-    media_type = {".jpg": "image/jpeg", ".mp4": "video/mp4", ".mp3": "audio/mpeg", ".png": "image/png"}.get(p.suffix.lower())
+    media_type = {".jpg": "image/jpeg", ".mp4": "video/mp4", ".mp3": "audio/mpeg", ".png": "image/png",
+                  ".pdf": "application/pdf", ".json": "application/json", ".ogg": "audio/ogg"}.get(p.suffix.lower())
     return FileResponse(p, media_type=media_type, headers={"Cache-Control": "private, max-age=3600"})
 
 
 for r in (routes_onboard, routes_cameras, routes_live, routes_upload, routes_search, routes_clips, routes_rules, routes_alerts,
-          routes_metrics, routes_ask, routes_visual, routes_uploads):
+          routes_metrics, routes_ask, routes_visual, routes_uploads, routes_v2):
     app.include_router(r.router)
 app.include_router(ws.router)

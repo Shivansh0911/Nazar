@@ -120,6 +120,8 @@ export interface Zone {
   name: string;
   label: string;
   polygon: [number, number][];
+  type?: "polygon" | "line";
+  direction?: "left" | "right";
 }
 
 export interface CameraOut {

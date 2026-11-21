@@ -1,17 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { Cpu, Gauge, IndianRupee, Timer } from "lucide-react";
+import { api2 } from "@/lib/api2";
 import { fmtInr } from "@/lib/format";
-import type { MetricsOut } from "@/lib/types";
-import { Card, ErrorBox, Page, Spinner } from "@/components/ui";
+import type { MetricsV2 } from "@/lib/types2";
+import { Card, ErrorBox, Page, Skeleton, Stat } from "@/components/ui";
+
+const ms = (v: number | null | undefined) => (v ? `${(v / 1000).toFixed(1)} s` : "—");
 
 export default function MetricsPage() {
-  const [m, setM] = useState<MetricsOut | null>(null);
+  const [m, setM] = useState<MetricsV2 | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [visitors, setVisitors] = useState(500);
+  const [questions, setQuestions] = useState(20);
+  const [alertsDay, setAlertsDay] = useState(3);
   const load = useCallback(async () => {
     try {
-      setM(await api.metrics());
+      setM(await api2.metrics());
       setErr(null);
     } catch (e) {
       setErr((e as Error).message);
@@ -19,86 +25,96 @@ export default function MetricsPage() {
   }, []);
   useEffect(() => {
     load();
-    const t = setInterval(load, 15000);
+    const t = setInterval(load, 20000);
     return () => clearInterval(t);
   }, [load]);
 
+  const u = m?.unit_costs;
+  const perQ = u?.question_p50_inr ?? null;
+  const perCap = u?.caption_inr ?? null;
+  const perVerify = u?.verify_per_call_inr ?? null;
+  // projection from measured unit costs: indexing is local (0); questions + AI checks on alerts + captions on alerts
+  const projection = perQ !== null ? questions * perQ + alertsDay * ((perVerify ?? 0) + (perCap ?? 0)) : null;
+  const acc = (m?.accuracy || {}) as Record<string, { rows?: { name: string; truth: number; counted: number; err_pct: number }[]; summary?: string } | null>;
+
   return (
-    <Page wide>
-      <h1 className="text-xl font-semibold">Cost &amp; quality</h1>
-      <p className="mt-1 text-sm text-muted">Every OpenAI call is logged with its cost. Numbers below come straight from those rows.</p>
-      {err && <div className="mt-3"><ErrorBox message={err} onRetry={load} /></div>}
-      {!m && !err && <div className="mt-4"><Spinner label="Loading…" /></div>}
-      {m && (
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
-          <Card className="md:col-span-2">
-            <div className="text-sm text-muted">Cost per camera-day</div>
-            <div className="mt-1 flex flex-wrap items-end gap-x-4 gap-y-1">
-              <div className="text-5xl font-bold tracking-tight">{fmtInr(m.cost_per_camera_day_inr)}</div>
-              {m.ratio && m.ratio >= 2 ? <div className="rounded-full bg-lime px-3 py-1 text-sm font-semibold text-slate-900">{m.ratio.toLocaleString("en-IN")}× cheaper</div> : null}
-            </div>
-            <div className="mt-2 text-sm text-muted">
-              vs. <b>{fmtInr(m.naive_per_camera_day_inr, 0)}</b> if one image per second went to AI (measured price of one caption image × 86,400; real full frames would cost more).
-            </div>
-            {m.cost_per_camera_day_inr === null && (
-              <div className="mt-2 text-xs text-muted">Shows once tracks are enriched (needs OPENAI_API_KEY). Footage watched so far: {m.footage_hours.toFixed(2)} h.</div>
-            )}
-            {m.per_track_inr != null && (
-              <div className="mt-3 rounded-xl bg-background p-3 text-sm">
-                <div><b>{fmtInr(m.per_track_inr, 3)}</b> per person/vehicle described · {m.tracks_described} described</div>
-                <div className="mt-1 text-xs text-muted">
-                  Cost follows activity, not time: this demo footage is rush-hour dense (~{m.tracks_per_hour?.toLocaleString("en-IN")} described per hour),
-                  so its camera-day projection is close to the naive one. Example: a shop with 500 visitors a day ≈ {fmtInr(m.per_track_inr * 500)} per day.
-                </div>
+    <Page title="Insights" subtitle="Every number here is measured: costs from logged OpenAI calls, speed and accuracy from the evaluation scripts.">
+      {err && <ErrorBox message={err} onRetry={load} />}
+      {!m && !err && <div className="grid gap-3 md:grid-cols-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-28" />)}</div>}
+      {m && u && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Stat accent label="AI cost to index" value="₹0" hint={`${m.index.footage_hours.toFixed(1)} h footage · ${m.index.tracks_indexed.toLocaleString("en-IN")} tracks + ${m.index.keyframes_indexed.toLocaleString("en-IN")} frames indexed locally`} />
+            <Stat label="Per question" value={fmtInr(u.question_p50_inr)} hint={`p50 · p90 ${fmtInr(u.question_p90_inr)} · ${u.questions} asked`} />
+            <Stat label="Per AI check" value={fmtInr(u.verify_per_call_inr)} hint={`${u.verifications} verifications${u.verify_per_image_inr ? ` · ${fmtInr(u.verify_per_image_inr, 3)}/image` : ""}`} />
+            <Stat label="Per incident report" value={fmtInr(u.report_inr)} hint={`${u.reports} report${u.reports === 1 ? "" : "s"} · incl. AI description`} />
+          </div>
+          <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
+            <Card>
+              <div className="mb-3 flex items-center gap-2 font-medium"><IndianRupee size={18} className="text-lime" /> What would it cost you?</div>
+              <div className="grid grid-cols-3 gap-3 text-sm">
+                <label>Visitors / day<input type="number" min={0} value={visitors} onChange={(e) => setVisitors(+e.target.value)} className="mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-2" /></label>
+                <label>Questions / day<input type="number" min={0} value={questions} onChange={(e) => setQuestions(+e.target.value)} className="mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-2" /></label>
+                <label>Alerts / day<input type="number" min={0} value={alertsDay} onChange={(e) => setAlertsDay(+e.target.value)} className="mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-2" /></label>
               </div>
-            )}
-            <div className="mt-3 text-xs text-muted">
-              How: CV watches every frame for free (YOLO + tracker on the edge); OpenAI only sees 1–3 face-blurred crops per tracked person/vehicle
-              and your questions. Based on {m.footage_hours.toFixed(2)} h of footage.
-            </div>
-          </Card>
-          <Card>
-            <div className="text-sm text-muted">Total spend</div>
-            <div className="mt-1 text-3xl font-bold">{fmtInr(m.total_inr)}</div>
-            <div className="text-xs text-muted">${m.total_usd.toFixed(4)}{m.unknown_price_calls ? ` · ${m.unknown_price_calls} calls with unknown price` : ""}</div>
-            <div className="mt-3 space-y-1">
-              {m.by_kind.map((k) => (
-                <div key={k.kind} className="flex justify-between text-sm"><span>{k.kind} <span className="text-muted">×{k.calls}</span></span><span>{fmtInr(k.inr)}</span></div>
-              ))}
-              {!m.by_kind.length && <div className="text-sm text-muted">No AI calls yet.</div>}
-            </div>
-          </Card>
-          <Card>
-            <div className="text-sm text-muted">Tracks processed</div>
-            <div className="mt-1 text-3xl font-bold">{m.tracks_processed.toLocaleString("en-IN")}</div>
-            <div className="text-xs text-muted">Enrichment backlog: {m.enrich_backlog}</div>
-          </Card>
-          <Card>
-            <div className="text-sm text-muted">Ask latency</div>
-            <div className="mt-1 text-3xl font-bold">{m.ask_latency_p50_ms ? `${(m.ask_latency_p50_ms / 1000).toFixed(1)} s` : "—"}</div>
-            <div className="text-xs text-muted">p50 · p90 {m.ask_latency_p90_ms ? `${(m.ask_latency_p90_ms / 1000).toFixed(1)} s` : "—"} · {m.query_count} questions</div>
-          </Card>
-          <Card>
-            <div className="text-sm text-muted">Evidence in answers</div>
-            <div className="mt-2 space-y-1 text-sm">
-              <div className="flex justify-between"><span>Confirmed</span><span>{m.level_distribution.confirmed}</span></div>
-              <div className="flex justify-between"><span>Probable</span><span>{m.level_distribution.probable}</span></div>
-              <div className="flex justify-between"><span>Candidate</span><span>{m.level_distribution.candidate}</span></div>
-            </div>
-          </Card>
-          {m.eval && (
-            <Card className="md:col-span-3">
-              <div className="text-sm font-medium">Evaluation (scripts/eval_*)</div>
-              <pre className="mt-2 overflow-x-auto rounded-xl bg-background p-3 text-xs">{JSON.stringify(m.eval, null, 2)}</pre>
+              <div className="mt-4 flex items-end gap-3">
+                <div className="font-display text-6xl leading-none">{projection !== null ? fmtInr(projection) : "—"}</div>
+                <div className="pb-1 text-sm text-muted">per day per site</div>
+              </div>
+              <div className="mt-2 text-xs text-muted">
+                = {questions} × {fmtInr(perQ)} per question + {alertsDay} × ({fmtInr(perVerify)} AI check + {fmtInr(perCap)} description). Watching {visitors.toLocaleString("en-IN")} visitors costs ₹0 in AI: detection, tracking, counting and the visual index run on this machine.
+              </div>
             </Card>
-          )}
-          <Card className="md:col-span-3">
-            <div className="text-sm font-medium">By model</div>
-            <div className="mt-2 grid gap-1 text-sm sm:grid-cols-2">
-              {m.by_model.map((x) => (
-                <div key={x.model} className="flex justify-between"><code className="text-xs">{x.model}</code><span>{fmtInr(x.inr)} · {x.calls} calls</span></div>
-              ))}
-              {!m.by_model.length && <div className="text-muted">—</div>}
+            <Card>
+              <div className="mb-3 flex items-center gap-2 font-medium"><Timer size={18} className="text-primary" /> Answer speed</div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><div className="text-xs text-muted">First words (p50)</div><div className="font-display text-4xl">{ms(m.latency.first_text_p50_ms)}</div><div className="text-[11px] text-muted">p90 {ms(m.latency.first_text_p90_ms)}</div></div>
+                <div><div className="text-xs text-muted">Full answer (p50)</div><div className="font-display text-4xl">{ms(m.latency.p50_ms)}</div><div className="text-[11px] text-muted">p90 {ms(m.latency.p90_ms)}</div></div>
+              </div>
+              <div className="mt-2 text-xs text-muted">{m.latency.n} questions · {m.latency.models.map((x) => `${x.model} ×${x.n}`).join(", ")}</div>
+            </Card>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <div className="mb-3 flex items-center gap-2 font-medium"><Cpu size={18} className="text-primary" /> Pipeline speed</div>
+              {m.pipeline ? (
+                <div>
+                  {m.pipeline.rows.map((r) => (
+                    <div key={r[0]} className="flex items-center gap-3 border-t border-line py-2 text-sm first:border-0">
+                      <span className="flex-1">{r[0]}</span><span className="font-display text-2xl">{r[3]}×</span><span className="w-20 text-right text-xs text-muted">real time</span>
+                    </div>
+                  ))}
+                  <div className="mt-1 text-xs text-muted">{(m.pipeline.file_s / 60).toFixed(0)} min test file · timestamp drift {m.pipeline.drift_s.toFixed(2)} s · measured {m.pipeline.at.slice(0, 16).replace("T", " ")}</div>
+                </div>
+              ) : <div className="text-sm text-muted">Run <code>python scripts/bench_pipeline.py</code>.</div>}
+            </Card>
+            <Card>
+              <div className="mb-3 flex items-center gap-2 font-medium"><Gauge size={18} className="text-primary" /> Accuracy</div>
+              {acc.counts?.rows?.length ? (
+                <table className="w-full text-sm">
+                  <thead><tr className="text-xs text-muted"><th className="text-left font-medium">Window</th><th className="text-right font-medium">Hand count</th><th className="text-right font-medium">Nazar</th><th className="text-right font-medium">Error</th></tr></thead>
+                  <tbody>{acc.counts.rows.map((r) => (
+                    <tr key={r.name} className="border-t border-line"><td className="py-1.5">{r.name}</td><td className="text-right">{r.truth}</td><td className="text-right">{r.counted}</td><td className="text-right">{r.err_pct}%</td></tr>
+                  ))}</tbody>
+                </table>
+              ) : <div className="text-sm text-muted">Run <code>python scripts/eval_counts.py</code> to measure count accuracy against hand counts.</div>}
+              {acc.tracking?.summary && <div className="mt-2 text-xs text-muted">Tracking (MOT17): {acc.tracking.summary}</div>}
+              <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                {(["confirmed", "probable", "candidate"] as const).map((k) => (
+                  <div key={k} className="rounded-xl bg-surface-2 p-2"><div className="font-display text-2xl">{m.level_distribution[k]}</div>{k}</div>
+                ))}
+              </div>
+              <div className="mt-1 text-[11px] text-muted">Evidence levels shown in recent answers</div>
+            </Card>
+          </div>
+          <Card>
+            <div className="mb-2 flex items-baseline gap-2"><span className="font-medium">Spend</span><span className="text-xs text-muted">today {fmtInr(m.today_inr)} · total {fmtInr(m.total_inr)}</span></div>
+            <div className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2 lg:grid-cols-3">
+              {m.by_kind.map((k) => <div key={k.kind} className="flex justify-between border-b border-line py-1"><span>{k.kind} <span className="text-muted">×{k.calls}</span></span><span>{fmtInr(k.inr)}</span></div>)}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted">
+              {m.by_tier.map((t) => <span key={t.tier} className="rounded-full bg-surface-2 px-2 py-1">{t.tier}: {t.calls} calls · {fmtInr(t.inr)}</span>)}
+              <span className="rounded-full bg-surface-2 px-2 py-1">descriptions: {m.enrich_mode}</span>
             </div>
           </Card>
         </div>
