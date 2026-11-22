@@ -14,6 +14,7 @@ from ..core import db, storage
 from ..core.vision_client import VisionUnavailable
 from . import visual
 from .auth import require_token
+from .deps import http_error
 from .deps import http_error, window
 
 router = APIRouter(prefix="/api", dependencies=[Depends(require_token)])
@@ -124,6 +125,8 @@ def verify_hits(body: VerifyIn, token: str = Depends(require_token)):
 
 @router.get("/journey/{track_id}")
 def journey(track_id: int, hours: float = 24.0, token: str = Depends(require_token)):
+    if not db.fetch_val("SELECT 1 FROM tracks WHERE id=%s", (track_id,)):
+        raise http_error(404, "track not found")
     j = visual.journey(track_id, hours=min(max(hours, 1.0), 72.0))
     visual.with_urls(j["steps"], token)
     names = {r["id"]: r["name"] for r in db.fetch_all("SELECT id, name FROM cameras")}

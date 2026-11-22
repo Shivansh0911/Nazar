@@ -211,7 +211,7 @@ def count_events(p: dict) -> dict:
             where.append("zone_path @> ARRAY[%s]::text[]")
             params.append(zone)
         rows = db.fetch_all(
-            f"SELECT id AS root, camera_id, GREATEST(t_start, %s) AS first_t, zone_path FROM root_tracks "
+            f"SELECT id AS root, camera_id, GREATEST(t_start, %s) AS first_t, zone_path, rider_of FROM root_tracks "
             f"WHERE {' AND '.join(where)} ORDER BY first_t LIMIT 5000", [t_from, *params])
     else:
         where = ["e.type=%s", "t.cls = ANY(%s)", "e.t BETWEEN %s AND %s", "e.zone=%s"]
@@ -221,9 +221,15 @@ def count_events(p: dict) -> dict:
             params.append(cam)
         rows = db.fetch_all(
             f"""SELECT COALESCE(t.merged_into, t.id) AS root, min(e.camera_id) AS camera_id, min(e.t) AS first_t,
-                       ARRAY[%s]::text[] AS zone_path
+                       ARRAY[%s]::text[] AS zone_path, max(r.rider_of) AS rider_of
                   FROM events e JOIN tracks t ON t.id = e.track_id
+                  JOIN tracks r ON r.id = COALESCE(t.merged_into, t.id)
                  WHERE {' AND '.join(where)} GROUP BY 1 ORDER BY first_t LIMIT 5000""", [zone, *params])
+    riders = 0
+    if cls == "person":
+        # v3 #5: a person who rode a motorcycle/bicycle is not a person on foot - reported separately
+        riders = sum(1 for r in rows if r.get("rider_of"))
+        rows = [r for r in rows if not r.get("rider_of")]
     o = _origin()
     counts: dict[datetime, int] = {}
     for r in rows:
@@ -237,6 +243,8 @@ def count_events(p: dict) -> dict:
     verb = {"present": "seen", "enter": "entered", "exit": "left", "dwell": "stayed 10 s+ at",
             "cross_in": "came in through", "cross_out": "went out through"}[event]
     label = f"{noun} {verb}" + (f" {zl}" if zl and event != "present" else (f" in {zl}" if zl else ""))
+    if cls == "person":
+        label = label.replace("people", "people on foot", 1)
     if event == "present":
         label += f" (tracks ≥ {min_s:g} s)"
     receipts = [{"track_id": int(r["root"]), "camera_id": r["camera_id"], "t": to_local(r["first_t"]).isoformat(),
@@ -244,6 +252,8 @@ def count_events(p: dict) -> dict:
     return {"value": value, "label": label, "level": "confirmed",
             "series": _fill_series(counts, span[0], span[1], step), "bucket": bucket, "camera_id": cam, "zone": zone,
             "cls": cls, "event": event, "time_from": to_local(t_from).isoformat(), "time_to": to_local(t_to).isoformat(),
+            "riders": riders, **({"riders_note": f"{riders} motorcycle/bicycle rider(s) not counted as people on foot"}
+                                 if riders else {}),
             "_receipts": receipts}
 
 

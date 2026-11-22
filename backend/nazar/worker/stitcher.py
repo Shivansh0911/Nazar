@@ -103,10 +103,35 @@ def run_once(lookback_minutes: int = 30) -> int:
     return n
 
 
+def riders_once(limit: int = 500) -> int:
+    """Mark finished person tracks that rode a motorcycle/bicycle (v3 #5). Children of a stitched root share its fate:
+    the check runs on every finished person fragment against vehicle tracks that overlap it in time."""
+    from ..core.riders import VEHICLES, find_vehicle
+
+    people = db.fetch_all(
+        "SELECT id, camera_id, path, t_start, t_end FROM tracks WHERE cls='person' AND NOT rider_checked AND NOT active "
+        "AND updated_at < now() - interval '5 seconds' ORDER BY id LIMIT %s", (limit,))
+    n = 0
+    for p in people:
+        vehicles = db.fetch_all(
+            "SELECT id, path FROM tracks WHERE camera_id=%s AND cls = ANY(%s) AND t_end >= %s AND t_start <= %s",
+            (p["camera_id"], list(VEHICLES), p["t_start"], p["t_end"]))
+        veh = find_vehicle(p["path"] or [], vehicles) if vehicles else None
+        db.execute("UPDATE tracks SET rider_checked=true, rider_of=%s WHERE id=%s", (veh, p["id"]))
+        n += veh is not None
+    # a stitched root counts as a rider when any of its fragments rode
+    db.execute("""UPDATE tracks r SET rider_of = c.rider_of FROM tracks c
+                   WHERE c.merged_into = r.id AND c.rider_of IS NOT NULL AND r.rider_of IS NULL""")
+    if n:
+        log.info("marked %d rider(s)", n)
+    return n
+
+
 def loop(stop, interval: float = 5.0) -> None:
     while not stop.is_set():
         try:
             run_once()
+            riders_once()
         except Exception as e:
             log.exception("stitcher error: %s", e)
         stop.wait(interval)

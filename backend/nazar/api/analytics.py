@@ -19,8 +19,9 @@ from ..core.config import get_settings
 log = logging.getLogger("nazar.analytics")
 VIEWS = {
     "v_cameras": "camera_id, name, kind, location, brand",
-    "v_tracks": "track_id, camera_id, cls, t_start, t_end, duration_s, zones text[], max_conf, caption, counted bool "
-                "(counted = the 'people seen' rule: >= 1.5 s and confident; use WHERE counted for people counts)",
+    "v_tracks": "track_id, camera_id, cls, t_start, t_end, duration_s, zones text[], max_conf, caption, counted bool, rider bool "
+                "(counted = the 'people seen' rule: >= 1.5 s, confident and not a motorcycle/bicycle rider; use WHERE "
+                "counted for people counts; rider = person who rode a motorcycle/bicycle)",
     "v_events": "event_id, camera_id, track_id, cls, type (enter|exit|dwell|cross_in|cross_out), zone, t, dwell_s",
     "v_crossings": "event_id, camera_id, track_id, cls, line, direction (in|out), t",
     "v_alerts": "alert_id, rule_id, camera_id, t, message, rule_text, ack",

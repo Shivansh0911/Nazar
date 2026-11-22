@@ -27,3 +27,16 @@ def test_sort_order_candidates_last():
     items.sort(key=lambda x: sort_key(*x))
     assert [i[0] for i in items] == ["confirmed", "probable", "probable", "candidate"]
     assert items[1][1] == 0.6
+
+
+def test_visual_levels_only_from_a_recorded_ai_yes():
+    from nazar.api.visual import level_for
+    from nazar.core.config import get_settings
+
+    hi = get_settings().VERIFY_MIN_SIM + 0.05
+    assert level_for(hi, None) == "candidate"            # similarity alone is never more than a Candidate
+    assert level_for(hi, "unclear") == "candidate"
+    assert level_for(hi, "yes") == "probable"             # local similarity AND a recorded AI "yes"
+    assert level_for(get_settings().VERIFY_MIN_SIM - 0.02, "yes") == "candidate"   # AI yes on a weak match: no promotion
+    assert level_for(hi, "no") is None                    # AI "no" drops the hit
+    assert "confirmed" not in {level_for(s, m) for s in (0.0, 0.5, 1.0) for m in (None, "yes", "no", "unclear")}

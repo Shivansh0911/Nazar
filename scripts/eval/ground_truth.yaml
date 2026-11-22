@@ -21,5 +21,5 @@ windows:
     source: samples/clip1.mp4
     offset_s: 0
     duration_s: 32
-    truth: 3
-    note: the vendor + two pedestrians walking past; motorcycle riders on the road are NOT counted here (the tracker does count riders as people, so this window measures that over-count honestly)
+    truth: 4
+    note: the vendor + three young men walking past together (re-counted frame by frame on 22 Nov - the earlier truth of 3 missed one of them; the frame at 9.5 s shows all three). Motorcycle riders on the road are riders, not people on foot (v3 rider rule).

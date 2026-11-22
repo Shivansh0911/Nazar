@@ -173,5 +173,7 @@ async def add_custom_photo(camera_id: str = Form(...), name: str = Form(...), im
 
 @router.delete("/custom-objects/{obj_id}")
 def del_custom(obj_id: int):
+    if not db.fetch_val("SELECT 1 FROM custom_objects WHERE id=%s", (obj_id,)):
+        raise http_error(404, "custom object not found")
     db.execute("UPDATE custom_objects SET active=false WHERE id=%s", (obj_id,))
     return {"ok": True}
