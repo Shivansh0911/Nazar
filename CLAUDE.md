@@ -1,3 +1,6 @@
+> **Setup, launch and use: see [AGENTS.md](AGENTS.md)** (same as [SETUP.md](SETUP.md)). Live demo: https://main.d3c12rzknieyam.amplifyapp.com — passcode `nazar2026`.
+> Quick start (Linux/macOS): `cp .env.example .env` (add OPENAI_API_KEY) → `bash scripts/setup.sh` → `bash scripts/start_all.sh` → `python scripts/demo_setup.py` → open http://localhost:3000 (passcode `nazar2026`). Windows: `scripts\start_all.ps1`.
+
 # Nazar — ask your CCTV anything
 
 Hackathon project (Builders 2026, Equal AI × OpenAI). Solo build. **Code freeze: Sunday 22 Nov 2026, 2:00 PM IST.**

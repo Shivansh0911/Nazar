@@ -1,6 +1,6 @@
 """Download the detector + face model into backend/models/.
 
-    python scripts/download_models.py               # yolo11n.pt + YuNet ONNX
+    python scripts/download_models.py               # YuNet, yolo11s/yolo11n, YOLOE + text encoder, SigLIP 2
     python scripts/download_models.py --export-cpu  # also export OpenVINO (fallback ONNX) for CPU servers
 """
 from __future__ import annotations
@@ -38,17 +38,32 @@ def main() -> int:
         fetch(YUNET_URL, YUNET)
     print(f"ok  {YUNET.name} ({YUNET.stat().st_size // 1024} KB)")
 
-    dest = MODELS / YOLO_NAME
-    if not dest.exists():
-        from ultralytics import YOLO
+    from ultralytics import YOLO
 
-        cwd = os.getcwd()
-        os.chdir(MODELS)
-        try:
-            YOLO(YOLO_NAME)  # ultralytics downloads into the cwd
-        finally:
-            os.chdir(cwd)
-    print(f"ok  {dest.name} ({dest.stat().st_size // 1024} KB)")
+    # detector (yolo11s, default), its small fallback, and YOLOE for "teach it anything" (+ its text encoder)
+    for name in dict.fromkeys(["yolo11s.pt", YOLO_NAME, "yolo11n.pt", "yoloe-26s-seg.pt"]):
+        d = MODELS / name
+        if not d.exists():
+            cwd = os.getcwd()
+            os.chdir(MODELS)
+            try:
+                m = YOLO(name)  # ultralytics downloads into the cwd
+                if name.startswith("yoloe"):
+                    m.set_classes(["chair"])  # fetches the MobileCLIP text encoder once
+            finally:
+                os.chdir(cwd)
+        print(f"ok  {name} ({d.stat().st_size // 1024} KB)" if d.exists() else f"WARN {name} not downloaded")
+    dest = MODELS / YOLO_NAME
+    # SigLIP 2 for the local visual index (cached by Hugging Face transformers)
+    try:
+        from transformers import AutoModel, AutoProcessor
+
+        mid = os.environ.get("NAZAR_SIGLIP", "google/siglip2-base-patch16-224")
+        AutoProcessor.from_pretrained(mid)
+        AutoModel.from_pretrained(mid)
+        print(f"ok  {mid}")
+    except Exception as e:
+        print(f"WARN SigLIP 2 not cached yet ({e}); the vision service downloads it on first start")
 
     if args.export_cpu:
         from ultralytics import YOLO
