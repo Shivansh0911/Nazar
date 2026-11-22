@@ -43,3 +43,7 @@ backend/models/*.ts
 backend/*.ts
 *.engine
 *.onnx
+
+# submission artefacts
+nazar_submission.zip
+web/nazar-web.zip
