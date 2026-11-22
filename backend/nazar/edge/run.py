@@ -202,7 +202,7 @@ def main(argv=None) -> int:
 
     log.info("edge %s run=%s source=%s kind=%s upscale=%.1f imgsz=%d", args.camera, run_id,
              src._safe_url(), kind, upscale, imgsz)
-    n_frames = n_det = n_skipped = 0
+    n_frames = n_det = n_skipped = n_slots = 0
     det_time = 0.0
     last_det_pos = -1e9
     first = True
@@ -212,8 +212,17 @@ def main(argv=None) -> int:
     last_dets = []
     last_snap = 0.0
     exit_code = 0
+    prof: dict[str, float] = {}
+    mark = [time.perf_counter()]
+
+    def lap(stage: str) -> None:  # per-stage wall time of the live loop (reported in the summary)
+        now_ = time.perf_counter()
+        prof[stage] = prof.get(stage, 0.0) + now_ - mark[0]
+        mark[0] = now_
+
     try:
         for fr in src.frames():
+            lap("read")
             if stop_ev.is_set():
                 break
             t, pos = fr.t, fr.pos_s
@@ -226,9 +235,14 @@ def main(argv=None) -> int:
                 h, w = img.shape[:2]
                 db.execute("UPDATE cameras SET width=%s, height=%s WHERE id=%s", (w, h, args.camera))
                 first = False
-            if pos - last_det_pos >= det_interval - 1e-6:
+            if pos - last_det_pos >= det_interval * 0.75:  # frames arrive with jitter; never skip a due frame
                 last_det_pos = pos
-                blur.detect(img)
+                n_slots += 1
+                # live: YuNet every other detection frame (face boxes are reused in between; head boxes from the
+                # person detections are blurred on every frame regardless) - v3 live fps
+                if not (src.live or args.simulate_live) or n_slots % 2 == 1:
+                    blur.detect(img)
+                lap("face_detect")
                 if gate.moving(img) or tracks.active:
                     t0 = time.perf_counter()
                     dets = detector.track(img)
@@ -247,11 +261,14 @@ def main(argv=None) -> int:
                     dets = []
                     last_dets = []
                     n_skipped += 1
+                lap("detect")
                 blur.set_persons([d.box for d in dets if d.cls == "person"])
                 blurred = blur.apply(img)
+                lap("blur")
                 tracks.update(dets, img, t)
                 tracks.step(t)
-                if src.live or args.simulate_live or (time.monotonic() - last_snap) >= 2.0:
+                lap("tracks")
+                if (time.monotonic() - last_snap) >= (0.25 if (src.live or args.simulate_live) else 2.0):
                     snap.write(blurred)
                     last_snap = time.monotonic()
                     if overlay is not None:
@@ -261,21 +278,27 @@ def main(argv=None) -> int:
                             overlay.write(blurred.copy(), dets, {"t": t.isoformat(), "state": "live", "fps": round(n_det / max(det_time, 1e-6), 1)})
                 if preview:
                     preview.write(blurred, dets, n_det / max(det_time, 1e-6))
+                lap("snapshot_overlay")
             else:
                 blurred = blur.apply(img)
+                lap("blur")
             segs.write(blurred, t)
+            lap("segments")
             if kf_live is not None and kf_live.due(t):
                 kf_live.last_t = t
                 heads = [d.head for d in last_dets if d.cls == "person"]
                 kf_live.write(blur.egress(blurred, heads, detect=False) if heads else blurred, t,
                               sum(1 for d in last_dets if d.cls == "person"))
+            lap("keyframes")
             if view is not None:
                 from .view import annotate
 
                 n_people = sum(1 for d in last_dets if d.cls == "person")
                 view.write(annotate(blurred, last_dets, zones, stamp=datetime.now(timezone.utc),
                                     counts={"people now": n_people}))
+            lap("view")
             hb.tick(t, True, len(tracks.active), processed_s=pos, duration_s=src.duration_s)
+            lap("heartbeat")
     except Exception as e:
         log.exception("edge crashed: %s", e)
         exit_code = 1
@@ -296,6 +319,8 @@ def main(argv=None) -> int:
     summary = {
         "camera": args.camera, "run_id": run_id, "frames": n_frames, "detections_run": n_det,
         "motion_skipped": n_skipped, "detect_fps": round(n_det / det_time, 1) if det_time else None,
+        "loop_fps": round(n_frames / max(1e-6, time.monotonic() - wall0), 1),
+        "stage_ms_per_frame": {k: round(1000 * v / max(1, n_frames), 1) for k, v in sorted(prof.items(), key=lambda x: -x[1])},
         "wall_s": round(wall, 1), "source_s": round(pos, 1), "speed_x": round(pos / wall, 2) if wall else None,
         "tracks_final": tracks.stats["tracks_final"], "noise_dropped": tracks.stats["noise_dropped"],
         "segments": segs.closed_count, "device": str(detector.device), "imgsz": imgsz, "upscale": upscale,
