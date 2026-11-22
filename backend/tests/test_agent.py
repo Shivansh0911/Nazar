@@ -78,3 +78,17 @@ def test_tool_schemas_are_strict_valid():
         p = t["parameters"]
         assert p["additionalProperties"] is False
         assert set(p["required"]) == set(p["properties"])
+
+
+def test_count_reply_is_written_from_the_sql_result(monkeypatch):
+    from nazar.api import agent
+
+    monkeypatch.setattr(agent.db, "fetch_all", lambda *a, **k: [{"id": "night-market", "name": "Night stall"}])
+    res = {"value": 8, "cls": "person", "event": "enter", "camera_id": "night-market", "zone": "counter",
+           "time_from": "2026-11-22T02:00:00+05:30", "time_to": "2026-11-22T05:00:00+05:30", "riders": 2}
+    hi = agent.count_reply("रात 2 बजे के बाद night stall पर कितने लोग आए?", res)
+    assert hi.language == "hi" and "8" in hi.reply_text and "Night stall" in hi.reply_text and "सवार" in hi.reply_text
+    hl = agent.count_reply("Kal raat night stall pe kitne log aaye?", res)
+    assert hl.language == "hinglish" and "8 log" in hl.reply_text and hl.count_ref == 0
+    en = agent.count_reply("How many people came to the night stall?", {**res, "riders": 0})
+    assert en.language == "en" and en.reply_text.startswith("8 people on foot came in at Night stall (counter)")

@@ -501,6 +501,47 @@ STATUS = {"count_events": "Counting from the tracker…", "search_tracks": "Sear
           "peak_occupancy": "Finding the busiest moment…", "camera_gaps": "Checking camera coverage…"}
 
 
+FAST_COUNT_REPLY = True
+_NOUN = {"person": ("people", "log", "लोग"), "car": ("cars", "gaadiyan", "गाड़ियाँ"), "motorcycle": ("motorcycles", "bikes", "बाइक"),
+         "bicycle": ("bicycles", "cycles", "साइकिलें"), "truck": ("trucks", "trucks", "ट्रक"), "bus": ("buses", "buses", "बसें"),
+         "any_bag": ("bags", "bags", "बैग"), "bag": ("bags", "bags", "बैग")}
+_VERB = {"present": ("seen", "dikhe", "दिखे"), "enter": ("came in", "aaye", "आए"), "exit": ("left", "gaye", "गए"),
+         "dwell": ("stayed 10 s+", "ruke", "रुके"), "cross_in": ("came in through the line", "andar aaye", "अंदर आए"),
+         "cross_out": ("went out through the line", "bahar gaye", "बाहर गए")}
+
+
+def _when(a: str, b: str) -> str:
+    x, y = datetime.fromisoformat(a), datetime.fromisoformat(b)
+    if x.date() == y.date() or (y - x).total_seconds() < 86400:
+        return f"{x:%d %b}, {x:%H:%M}–{y:%H:%M}"
+    return f"{x:%d %b %H:%M} – {y:%d %b %H:%M}"
+
+
+def count_reply(question: str, res: dict) -> "AgentAnswer":
+    """A count answer written by the server from the SQL result (numbers never come from a model)."""
+    lang = detect_language(question)
+    li = {"en": 0, "hinglish": 1, "hi": 2}[lang]
+    n = res["value"]
+    noun = _NOUN.get(res.get("cls") or "person", (res.get("cls"), res.get("cls"), res.get("cls")))[li]
+    if (res.get("cls") or "person") == "person":
+        noun = ("people on foot", "log (paidal)", "पैदल लोग")[li]
+    verb = _VERB.get(res.get("event") or "present", _VERB["present"])[li]
+    names = {c["id"]: c["name"] for c in db.fetch_all("SELECT id, name FROM cameras")}
+    cam = names.get(res.get("camera_id")) or res.get("camera_id") or ("all cameras", "sabhi cameras", "सभी कैमरों")[li]
+    zone = f" ({res['zone']})" if res.get("zone") else ""
+    when = _when(res["time_from"], res["time_to"])
+    text = [f"{n} {noun} {verb} at {cam}{zone}, {when} — confirmed by the tracker; each one is in the receipts.",
+            f"{cam}{zone} par {when} ke beech {n} {noun} {verb} — tracker se confirmed, har ek receipts mein hai.",
+            f"{cam}{zone} पर {when} के बीच {n} {noun} {verb} — ट्रैकर से पुष्ट, हर एक रसीदों में है।"][li]
+    if res.get("riders"):
+        text += [f" ({res['riders']} motorcycle/bicycle riders counted separately.)",
+                 f" ({res['riders']} bike/cycle sawaar alag gine gaye.)",
+                 f" ({res['riders']} बाइक/साइकिल सवार अलग गिने गए।)"][li]
+    follow = [["Show me the clips", "Which hour was busiest?"], ["Clips dikhao", "Sabse busy ghanta kaunsa tha?"],
+              ["क्लिप दिखाओ", "सबसे व्यस्त घंटा कौन सा था?"]][li]
+    return AgentAnswer(reply_text=text, language=lang, count_ref=0, followups=follow)
+
+
 def run_agent(question: str, camera_id: str | None, *, ref: str, token: str | None, model: str | None = None,
               on_event=None) -> tuple[AgentAnswer, list[dict]]:
     ai = get_ai()
@@ -550,6 +591,14 @@ def run_agent(question: str, camera_id: str | None, *, ref: str, token: str | No
                 outs = list(pool.map(run_one, fcalls))
         else:
             outs = [run_one(fcalls[0])]
+        if rnd == 0 and len(outs) == 1 and outs[0][0].name == "count_events" and FAST_COUNT_REPLY:
+            res = outs[0][2]
+            if isinstance(res, dict) and not res.get("error") and (res.get("value") or 0) > 0:
+                # v3 latency: the count is already the answer (from SQL) - write it server-side, skip a model round
+                calls.append({"index": 0, "name": "count_events", "args": outs[0][1], "result": res})
+                ans = count_reply(question, res)
+                emit("text", ans.reply_text)
+                return ans, calls
         for fc, args, result in outs:
             idx = len(calls)
             calls.append({"index": idx, "name": fc.name, "args": args, "result": result})
