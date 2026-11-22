@@ -15,7 +15,7 @@ Design lineage: the author's previous project SETU (vehicle search without numbe
 
 ## Architecture (v2)
 ```
-file  → ffmpeg samples 5 fps → batched GPU YOLO11s → ordered ByteTrack → 5 Hz paths (+ head boxes) ┐ no re-encode:
+file  → ffmpeg samples 5 fps → batched GPU YOLO11s → ordered BoT-SORT (tuned) → 5 Hz paths (+ head boxes) ┐ no re-encode:
 live  → OpenCV decode → same detector/tracker (+ YOLOE for taught objects) → blurred 10 s segments ┘ originals kept
       → crops (blurred at cut + YuNet) + keyframes every 2 s (blurred) → Postgres + pgvector
 vision service (SigLIP 2, GPU) → indexes crops + keyframes locally (Rs 0) → visual search / photo search / journey

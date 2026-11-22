@@ -91,7 +91,7 @@ class Detector:
         self.torch_model = not self.weights.endswith(("openvino_model", ".onnx"))
         self.gpu = self.device != "cpu" and self.torch_model
         self.model = YOLO(self.weights, task="detect")
-        self.tracker_kind = tracker or os.environ.get("NAZAR_TRACKER", "bytetrack")
+        self.tracker_kind = tracker or os.environ.get("NAZAR_TRACKER", "botsort")
         self.fps = fps
         self.tracker = make_tracker(self.tracker_kind, fps)
         log.info("detector %s on %s (gpu tensors=%s, imgsz=%d, tracker=%s)", Path(self.weights).name, self.device,

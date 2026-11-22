@@ -169,7 +169,7 @@ def main(argv=None) -> int:
     src = FrameSource(source, kind, start_time=start_time, simulate_live=args.simulate_live, loop=args.loop,
                       pace=(kind == "file" and not args.fast and not args.simulate_live), min_interval=seg_interval,
                       on_status=on_status, upscale=upscale, stop=stop_ev.is_set)
-    detector = Detector(args.device, imgsz=imgsz, conf=conf, fps=s.DETECT_FPS)
+    detector = Detector(args.device, imgsz=imgsz, conf=conf, fps=s.DETECT_FPS, tracker=settings.get("tracker") or None)
     blur = FaceBlurrer()
     tracks = TrackManager(args.camera, run_id, track_end_s=s.TRACK_END_S, upsert_every_s=s.ACTIVE_UPSERT_S,
                           job_id=args.job)
@@ -314,7 +314,7 @@ def run_fast(args, s, source: str, settings: dict, zones: list, start_time, run_
     upscale = float(settings.get("upscale") or (2.0 if 0 < src_h < 720 else 1.0))
     imgsz = int(settings.get("detect_imgsz") or (960 if upscale > 1 else s.DETECT_IMGSZ))
     conf = float(settings.get("detect_conf") or s.DETECT_CONF)
-    detector = Detector(args.device, imgsz=imgsz, conf=conf, fps=s.DETECT_FPS)
+    detector = Detector(args.device, imgsz=imgsz, conf=conf, fps=s.DETECT_FPS, tracker=settings.get("tracker") or None)
     tracks = TrackManager(args.camera, run_id, track_end_s=s.TRACK_END_S, upsert_every_s=s.ACTIVE_UPSERT_S,
                           job_id=args.job)
     tracks.wall_upsert = True

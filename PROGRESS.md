@@ -247,18 +247,18 @@ the next session; this build used the Playwright npm package (`scripts/shots_v2.
 | W9 onboarding | ✅ | resumable 8 MB parts, no re-encode, live analysis view, CCTV builder + Test connection, Excel/CSV import, ONVIF discovery, first-run wizard, hackathon clip as "Builders venue" |
 | W10 WebRTC live view | ✅ (fps below goal) | live edges publish the blurred view + burned-in overlay to MediaMTX `<camera>_view`; web plays WHEP with MJPEG fallback; browsers may read only `*_view`; glass-to-glass < ~0.5 s; live detection 2.3 fps under load (goal 10) |
 | W11 UI | ✅ | dark-first night-watch design, side rail + bottom tabs, every screen redesigned, screenshots at 390/1440 both themes |
-| W12 data/eval | partly | hand counts (3 windows), tracker comparison, agent battery, language round-trip; MOT17/snatch datasets not downloaded (multi-GB) |
+| W12 data/eval | partly | hand counts (3 windows), MOT17-11/13 tracking eval (v2 default IDsw 42 vs v1 44, MOTA 0.35 vs 0.31; GMC option IDsw 12), agent battery, language round-trip; snatch/theft datasets not downloaded |
 | W13 cost truth | ✅ | unit costs measured from `usage`; Flex tier with fallback; projection calculator |
 | W15 MCP | ✅ | Higgsfield not added (fabricated video = fake evidence) |
 
 ## v2 measured (22 Nov 2026, this laptop) — sources: data/eval/*.json
 - Speed (`bench_pipeline.py`, 30 min 1280x720): v1 1.3x -> v2 8.9x real time (dense rush-hour footage, 2,636 tracks);
   venue clip 17.7x; drift 0.13 s. Bottleneck: tracker + Python on CPU, not the GPU.
-- Agent battery (`eval_battery.py`, 27 questions, hi/hinglish/en): 27/27 correct; first words p50 7.0 s / p90 10.3 s;
-  full p50 8.8 s / p90 12.2 s; agent cost p50 Rs 0.03 (p90 0.05); 26/27 on gpt-6-luna.
+- Agent battery (`eval_battery.py`, 27 questions, hi/hinglish/en): 27/27 correct in two runs; latest: first words p50 8.02 s,
+  full p50 9.68 s / p90 15.83 s; agent cost p50 Rs 0.03 (p90 0.11); 25/27 on gpt-6-luna.
 - Unit costs (Insights): question incl. voice reply p50 Rs 0.31; verification Rs 0.013/call; report Rs 0.016; caption Rs 0.005.
-- Counts vs hand counts (`eval_counts.py`): office desk 2/2, shop counter 4 vs 3 (rider), venue 5 vs 3 (occluded person
-  re-detected). BoT-SORT (no ReID) = ByteTrack on these windows.
+- Counts vs hand counts (`eval_counts.py`, tuned BoT-SORT): office desk 2/2, venue 3/3, shop counter 4 vs 3 (a rider);
+  with ByteTrack the venue was 5 vs 3.
 - Languages round-trip: hi, en, ta, te, bn, gu, kn pass; Hinglish returns Devanagari; Marathi fails (Gurmukhi).
 - Live: object-removed alert 3.0 s after the event (snapshot + voice); taught "laptop" (YOLOE) alert 4.6 s.
 - Security on demo data: object_removed AI-verified Probable (ABODA); abandoned bag stays Candidate.
@@ -269,5 +269,5 @@ the next session; this build used the Playwright npm package (`scripts/shots_v2.
 
 ## v2 — exact next step
 Feature work is frozen. If resuming: (1) pair Telegram from Settings and verify a voice-note question + an alert
-arrive (FINAL_STEPS §4); (2) optional P1 left: MOT17 eval, 10 fps live detection under load; (3) deploy per
+arrive (FINAL_STEPS §4); (2) optional left: snatch/theft dataset eval, 10 fps live detection under load, W7 realtime voice; (3) deploy per
 infra/DEPLOY.md only with the user's explicit yes for every AWS resource.

@@ -1,9 +1,10 @@
+# Default tracker (MOT17 eval: fewer ID switches than v1 ByteTrack on a static camera, same speed).
 tracker_type: botsort
-track_high_thresh: 0.4
+track_high_thresh: 0.5
 track_low_thresh: 0.1
-new_track_thresh: 0.5
+new_track_thresh: 0.6
 track_buffer: 60
-match_thresh: 0.8
+match_thresh: 0.9
 fuse_score: true
 gmc_method: none
 proximity_thresh: 0.5

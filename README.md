@@ -58,7 +58,7 @@ flowchart LR
   src["file · upload · RTSP DVR · phone (SRT/RTMP→MediaMTX)"] --> edge
   subgraph edge["Edge (one per camera)"]
     direction TB
-    e1["files: ffmpeg samples 5 fps (no re-encode)<br/>live: decode + YOLOE for taught objects"] --> e2["YOLO11s on GPU tensors, batches of 32<br/>ByteTrack in frame order"] --> e3["5 Hz paths + head boxes · crops blurred at cut<br/>keyframe every 2 s (blurred) · live analysis view"]
+    e1["files: ffmpeg samples 5 fps (no re-encode)<br/>live: decode + YOLOE for taught objects"] --> e2["YOLO11s on GPU tensors, batches of 32<br/>tuned BoT-SORT in frame order"] --> e3["5 Hz paths + head boxes · crops blurred at cut<br/>keyframe every 2 s (blurred) · live analysis view"]
   end
   edge --> pg[("Postgres + pgvector<br/>tracks · events · keyframes · originals")]
   pg <--> vis["Vision service<br/>SigLIP 2 (local GPU) indexes<br/>crops + keyframes — ₹0"]
@@ -113,7 +113,7 @@ flowchart LR
 | Pipeline | Footage | Wall | × real time |
 |---|---|---|---|
 | v1: OpenCV decode every frame + per-frame YOLO11n + segment re-encode (60 s sample) | 60 s | 46 s | **1.3×** |
-| v2: ffmpeg 5 fps sampling + YOLO11s on GPU tensors (batch 32) + ordered ByteTrack, no re-encode | 1800 s | 203 s | **8.9×** |
+| v2: ffmpeg 5 fps sampling + YOLO11s on GPU tensors (batch 32) + ordered ByteTrack, no re-encode (BoT-SORT default since: 7.7x on the 62 s street clip vs 7.4x) | 1800 s | 203 s | **8.9×** |
 | v2 on the Builders-venue clip (848×478, 5.5 min) | 330 s | 18.6 s | **17.7×** |
 
 Timestamp drift at the end of the 30-minute file: 0.13 s. The 30-minute test is rush-hour street/mall footage with
@@ -126,9 +126,9 @@ security, heatmap, look-now, rule, report, face-search refusal, a vague "kitne?"
 
 | Result | First words p50 / p90 | Full answer p50 / p90 | Agent cost p50 / p90 |
 |---|---|---|---|
-| **27 / 27 correct**; every Confirmed number re-computed from SQL and equal | 7.0 s / 10.3 s | 8.8 s / 12.2 s | ₹0.03 / ₹0.05 |
+| **27 / 27 correct** (twice); every Confirmed number re-computed from SQL and equal | 8.0 s / 10.9 s | 9.7 s / 15.8 s | ₹0.03 / ₹0.11 |
 
-26 of 27 answered by `gpt-6-luna`; one escalated to `gpt-6-sol` (₹1.00). The 2.5 s / 5 s latency targets are **not
+25 of 27 answered by `gpt-6-luna`; two escalated to `gpt-6-sol` (₹0.58 and ₹1.30). An earlier run: first words 7.0 s, full 8.8 s p50. The 2.5 s / 5 s latency targets are **not
 met**: an answer takes 2–3 model rounds; status lines ("Counting from the tracker…") appear while tools run.
 
 **Unit costs** — from the `usage` table (Insights page), 62 questions:
@@ -151,9 +151,19 @@ calculator; v1 captioned every track and cost ₹351 per camera-day on busy foot
 |---|---|---|---|
 | Office desk (ABODA bag clip) | 2 | 2 | — |
 | Shop counter (veg stall), people on foot | 3 | 4 | a motorcycle rider is counted as a person |
-| Builders venue, first 60 s | 3 | 5 | a person half-hidden behind a chair is re-detected 2× at low confidence |
+| Builders venue, first 60 s | 3 | 3 | (ByteTrack gave 5: a half-hidden person re-detected; fixed by the tuned BoT-SORT default) |
 
-BoT-SORT (no ReID) gave the same counts as ByteTrack on these windows, so ByteTrack stays.
+**Tracking on MOT17** — `python scripts/eval_tracking.py` (MOT17-11 and -13 with ground truth, sampled at 5 fps like the
+edge; both are moving-camera sequences):
+
+| Config | ID switches (mean) | MOTA | IDF1 (approx.) | count error |
+|---|---|---|---|---|
+| v1: yolo11n + ByteTrack | 44 | 0.31 | 0.38 | 51 % |
+| **v2 default:** yolo11s + tuned BoT-SORT (no camera-motion comp.) | 42 | 0.35 | 0.40 | 48 % |
+| v2 option for moving/PTZ cameras: + camera-motion compensation | **12** | 0.41 | 0.52 | 50 % |
+
+The default keeps full speed (7.7x on the dense street clip; motion compensation halves it) and fragments less
+(133 vs 168 tracks on that clip). MOT17-13 has tiny, far pedestrians: recall is only 0.12-0.21 at imgsz 640.
 
 **Languages** — `python scripts/eval_languages.py` (TTS → transcription round trip): **Hindi, English, Tamil,
 Telugu, Bengali, Gujarati, Kannada pass**. Hinglish comes back in Devanagari (same words), Marathi came back in
@@ -209,7 +219,7 @@ No GPU instances, no Bedrock, one instance. Click-by-click: [infra/DEPLOY.md](in
   to search, receive alerts with snapshot, clip and voice note, and the 8:00 digest.
 
 ## Honest limitations
-- **Latency** is 7–9 s per answer (p50), above the 5 s goal; first words also arrive late because the text streams only
+- **Latency** is 10–10 s per answer (p50), above the 5 s goal; first words also arrive late because the text streams only
   in the final model round.
 - **Dense scenes:** 8.9× real time (not 15×) on rush-hour footage; counts there are an upper bound (riders count as
   people, partly hidden people are re-detected).
@@ -218,8 +228,8 @@ No GPU instances, no Bedrock, one instance. Click-by-click: [infra/DEPLOY.md](in
   for the CPU (goal 10 fps). Boxes are drawn into the stream, not on a client canvas.
 - **Teach by photo** uses the local SigLIP 2 index (YOLOE visual prompts scored 0.07–0.09 on our blurred 512 px frames):
   matches are Candidates and arrive ~20 s after the object appears (crops are written after 20 s in view).
-- **Not done in v2:** the realtime "Call Nazar" voice mode, MOT17/snatch-dataset
-  evaluation (multi-GB downloads), ANPR.
+- **Not done in v2:** the realtime "Call Nazar" voice mode, snatch/theft-dataset evaluation
+  (multi-GB downloads; MOT17 was evaluated on 2 sequences), ANPR.
 - **Heuristic security events** (running, fall, snatch, loitering) are Candidates until verified; they were checked
   on the demo clips, not on a labelled dataset.
 - **Night/IR footage, tiny objects and top-down fisheye views** are weak spots of the detector.

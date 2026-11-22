@@ -31,3 +31,9 @@ bag clips were the first choice for clip6 but their top-down bag is never detect
 
 ## v2: Builders venue clip
 - `samples/hackathon.mp4` (camera **Builders venue**): a 5.5-minute clip recorded at the Builders 2026 hackathon venue on 21 Nov 2026 and provided by the author. Not committed (real people). Every frame Nazar serves from it is face-blurred (crops, keyframes, clips, PDFs).
+
+## v2: evaluation data (downloaded locally, never committed or redistributed)
+- **MOT17** (MOTChallenge, Milan et al. 2016; licence CC BY-NC-SA 3.0): sequences MOT17-11-SDP and MOT17-13-SDP
+  with ground truth, taken from the Kaggle mirror `nishilagarwal/mot-cv-a1` (288 MB) into
+  `DATA_DIR/datasets/mot_cv_a1`. Used only for `scripts/eval_tracking.py`. The full 5.5 GB MOT17/MOT20 and the
+  snatching/theft datasets (RoadCrime-CCTV, Snatch 1.0, UCF-Crime, MNNIT shoplifting) were not downloaded.

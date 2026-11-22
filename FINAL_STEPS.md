@@ -75,13 +75,14 @@ never GPU instances, never Bedrock.
 ## 8. Known issues and what was not done
 | Item | Status / why | How to verify / next step |
 |---|---|---|
-| Answer latency | p50 8.8 s full, first words 7.0 s (targets 5 s / 2.5 s not met) | Insights → Answer speed; `eval_battery.py` |
+| Answer latency | p50 9.7 s full, first words 8.0 s (targets 5 s / 2.5 s not met) | Insights → Answer speed; `eval_battery.py` |
 | Dense footage speed | 8.9× real time on rush-hour footage (17.7× on the venue clip); goal 15× | `bench_pipeline.py` |
-| Counting over-count | riders and half-hidden people add tracks (venue 5 vs 3, shop 4 vs 3) | `eval_counts.py` |
+| Counting over-count | motorcycle riders count as people (shop counter 4 vs 3); venue and office desk exact | `eval_counts.py` |
 | W10 live view | WebRTC works (< ~0.5 s glass-to-glass); live detection ran 2.3 fps under load (goal 10); boxes are burned into the stream | `cd web; node ../scripts/webrtc_check.mjs` |
 | W7 "Call Nazar" realtime voice | **not done** (P2) | — |
 | Teach by photo | works via the SigLIP 2 index (Candidates, ~20 s after the object appears); YOLOE visual prompts were too weak on our frames | `python scripts/live_alert_test.py --photo demo/bag_photo.jpg` |
-| MOT17 / snatch datasets | **not downloaded** (multi-GB); evaluation uses hand counts + demo clips | `eval_counts.py` |
+| Tracking (MOT17) | evaluated on 2 sequences: default BoT-SORT 42 ID switches vs v1 44; with camera-motion compensation 12 (2x slower; set per PTZ camera) | `python scripts/eval_tracking.py` |
+| Snatch / theft datasets | **not downloaded** (multi-GB); security heuristics checked on demo clips only | — |
 | Marathi voice | transcription returned Gurmukhi script → not claimed | `eval_languages.py` |
 | Telegram end-to-end | bot runs and polls; pairing/voice/alert delivery need your phone (§4) | §4 |
 | Memory | ~0.6 GB free with everything running on 8 GB; the vision service keeps SigLIP loaded (unloading crashed torch on Windows) | close other apps |
