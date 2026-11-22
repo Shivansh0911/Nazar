@@ -56,6 +56,12 @@ Q = [
     ("kitne?", "clarify"),
     ("Night stall pe raat 9 baje ke baad kitne log aaye?", "count"),
     ("Market street pe kal shaam kitne log the?", "count"),
+    # v3: the hackathon clip (camera "Builders venue")
+    ("बिल्डर्स वेन्यू पर टीम डेस्क पर कितने लोग आए?", "count"),
+    ("Builders venue pe sabse zyada log ek saath kab the?", "peak"),
+    ("How long did people stay at the team desk on the Builders venue camera?", "analysis"),
+    ("Show me someone with a green bag at the Builders venue", "visual"),
+    ("Builders venue pe koi loitering ya ajeeb harkat hui?", "security"),
 ]
 
 

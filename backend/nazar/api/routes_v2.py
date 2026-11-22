@@ -176,4 +176,5 @@ def del_custom(obj_id: int):
     if not db.fetch_val("SELECT 1 FROM custom_objects WHERE id=%s", (obj_id,)):
         raise http_error(404, "custom object not found")
     db.execute("UPDATE custom_objects SET active=false WHERE id=%s", (obj_id,))
+    db.execute("DELETE FROM tracks WHERE run_id=%s", (f"teach-{obj_id}",))  # its replay sightings go with it
     return {"ok": True}

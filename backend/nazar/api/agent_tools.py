@@ -268,15 +268,19 @@ def peak_occupancy(p: dict) -> dict:
     poly = polygon_for(zone, zones) if zone else polygon_for("anywhere", zones)
     lo, hi = int(t_from.timestamp()), int(t_to.timestamp())
     per: dict[int, int] = {}
+    who: dict[int, list[int]] = {}
     for tr in tracks:
         for s in presence_seconds(tr, poly):
             if lo <= s <= hi:
                 per[s] = per.get(s, 0) + 1
+                who.setdefault(s, []).append(tr["id"])
     if not per:
         return {"max": 0, "at": None, "level": "confirmed", "camera_id": cam, "zone": zone}
     s_max = max(per, key=lambda s: (per[s], -s))
-    return {"max": per[s_max], "at": to_local(datetime.fromtimestamp(s_max, tz=timezone.utc)).isoformat(),
-            "level": "confirmed", "camera_id": cam, "zone": zone, "cls": cls}
+    at = to_local(datetime.fromtimestamp(s_max, tz=timezone.utc)).isoformat()
+    # receipts: the tracks present at the peak second (every Confirmed number carries its receipts)
+    return {"max": per[s_max], "at": at, "level": "confirmed", "camera_id": cam, "zone": zone, "cls": cls,
+            "_receipts": [{"track_id": int(t), "camera_id": cam, "t": at, "zone": zone} for t in who[s_max]]}
 
 
 def camera_gaps(p: dict) -> dict:

@@ -72,8 +72,8 @@ def search(vec: list[float], *, t_from: datetime, t_to: datetime, camera_ids: li
              "thumb_key": (r["crop_keys"] or [None])[0], "caption": r["caption"], "zones": list(r["zone_path"] or [])}
             for r in rows]
     # scene keyframes answer questions about things that were never tracked (shutter, cylinder, rain...)
-    objects_only = bool(cf) and "person" not in cf
-    if keyframes and (not cf or objects_only) and mode == "text":
+    # (also for "someone with a green bag": the bag may be a still object that was never tracked)
+    if keyframes and mode == "text":
         kw = ["k.emb IS NOT NULL", "k.t BETWEEN %s AND %s"]
         kp: list[Any] = [t_from, t_to]
         if camera_ids:

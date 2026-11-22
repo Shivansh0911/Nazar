@@ -507,6 +507,8 @@ STATUS = {"count_events": "Counting from the tracker…", "search_tracks": "Sear
 
 
 FAST_COUNT_REPLY = True
+# "how many" in the languages we test; other questions that happen to use count_events keep the full agent path
+COUNT_Q = re.compile(r"kitn|how many|number of|कितन|எத்தனை|ఎంత|কত|કેટલ|ಎಷ್ಟು", re.I)
 _NOUN = {"person": ("people", "log", "लोग"), "car": ("cars", "gaadiyan", "गाड़ियाँ"), "motorcycle": ("motorcycles", "bikes", "बाइक"),
          "bicycle": ("bicycles", "cycles", "साइकिलें"), "truck": ("trucks", "trucks", "ट्रक"), "bus": ("buses", "buses", "बसें"),
          "any_bag": ("bags", "bags", "बैग"), "bag": ("bags", "bags", "बैग")}
@@ -596,7 +598,7 @@ def run_agent(question: str, camera_id: str | None, *, ref: str, token: str | No
                 outs = list(pool.map(run_one, fcalls))
         else:
             outs = [run_one(fcalls[0])]
-        if rnd == 0 and len(outs) == 1 and outs[0][0].name == "count_events" and FAST_COUNT_REPLY:
+        if rnd == 0 and len(outs) == 1 and outs[0][0].name == "count_events" and FAST_COUNT_REPLY and COUNT_Q.search(question):
             res = outs[0][2]
             if isinstance(res, dict) and not res.get("error") and (res.get("value") or 0) > 0:
                 # v3 latency: the count is already the answer (from SQL) - write it server-side, skip a model round
@@ -675,8 +677,13 @@ def assemble(answer: AgentAnswer, calls: list[dict], token: str | None) -> dict:
                      "receipts_total": len(rec), "receipt_ids": [x["track_id"] for x in rec[:2000]],
                      "receipt_times": [x["t"] for x in rec[:2000]]}
         else:
+            rec = r.get("_receipts") or []
+            th = _thumbs([x["track_id"] for x in rec[:48]], token)
             count = {"value": r["max"], "label": "most at the same time" + (f" ({r['at'][11:16]})" if r.get("at") else ""),
-                     "level": "confirmed", "series": [], "bucket": "hour", "receipts": [], "receipts_total": 0}
+                     "level": "confirmed", "series": [], "bucket": "hour",
+                     "receipts": [{**x, "thumb_url": th.get(x["track_id"]), "level": "confirmed"} for x in rec[:48]],
+                     "receipts_total": len(rec), "receipt_ids": [x["track_id"] for x in rec[:2000]],
+                     "receipt_times": [x["t"] for x in rec[:2000]]}
     rule = None
     for c in calls:
         if c["name"] == "create_rule" and isinstance(c["result"], dict) and c["result"].get("_draft"):
