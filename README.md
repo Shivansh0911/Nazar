@@ -34,6 +34,12 @@ the same wall of video.
 Plus security analytics out of the box — loitering, abandoned bag, object taken, running, fall, crowding,
 after-hours presence, possible snatch — each a *Candidate* until a short AI check of blurred frames agrees.
 
+## Live demo
+**https://main.d3c12rzknieyam.amplifyapp.com** (passcode `nazar2026`). The web app is hosted on **AWS Amplify**
+(app `nazar`, us-west-2). The API and video pipeline run on the owner's laptop GPU (RTX 4050), reached over a secure
+HTTPS tunnel, so the link works while that laptop is on. Footage stays on the owner's machine: that is the privacy
+design. The full cloud path (one CPU EC2 + RDS + S3) is scripted in [`infra/DEPLOY.md`](infra/DEPLOY.md).
+
 ## Demo film
 **`demo/nazar_film.mp4`** — the narrated film (with sound): a narrator explains each chapter, and you **hear** the
 owner's real Hindi voice note, Nazar's real spoken Hindi reply and the live alert's Hinglish voice note

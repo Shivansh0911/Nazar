@@ -57,7 +57,22 @@ Telegram pairing → Insights (₹0 to index, ₹ per question, speed, accuracy)
   python scripts/film_build.py`.
 - `demo\nazar_full.mp4` (silent, captions) and `demo\nazar_v2.mp4` (short v2 cut). Videos are not committed — upload them.
 
-## 7. Deploy (when you decide)
+## 7a. Live link (deployed 22 Nov 2026)
+**https://main.d3c12rzknieyam.amplifyapp.com**, passcode `nazar2026`. The web app is on AWS Amplify (app `nazar`).
+The API runs on this laptop through a Cloudflare quick tunnel. Keep the laptop on, with `start_all.ps1` running, and:
+```powershell
+# 1) tunnel (prints a new https://<words>.trycloudflare.com URL each time)
+& "$env:LOCALAPPDATA\Nazar\bin\cloudflared.exe" tunnel --no-autoupdate --url http://localhost:8000
+# 2) restart the API with that URL (replace <URL>)
+$env:API_BASE_URL="<URL>"; $env:WEB_ORIGINS="https://main.d3c12rzknieyam.amplifyapp.com,http://localhost:3000"
+cd backend; python -m uvicorn nazar.api.main:app --host 0.0.0.0 --port 8000
+# 3) only if the tunnel URL changed: rebuild the web with it and redeploy to Amplify
+cd web; $env:NEXT_PUBLIC_API_BASE_URL="<URL>"; npm run build   # zip out/ with forward slashes, Amplify -> Deploy updates
+```
+The tunnel URL changes if `cloudflared` restarts. Then repeat steps 2 and 3. A named Cloudflare tunnel gives a fixed URL.
+Why not EC2: the account's one allowed instance is the organisers' Code Editor machine.
+
+## 7. Full cloud deploy (when you decide)
 `infra/DEPLOY.md`: one CPU EC2 + RDS + S3 + Amplify; `docker compose -f infra/docker-compose.prod.yml config -q` and
 `caddy validate` (with `DOMAIN` set) pass. You approve every AWS resource; never GPU instances, never Bedrock.
 
