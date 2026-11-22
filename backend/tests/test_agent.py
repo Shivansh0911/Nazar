@@ -92,3 +92,13 @@ def test_count_reply_is_written_from_the_sql_result(monkeypatch):
     assert hl.language == "hinglish" and "8 log" in hl.reply_text and hl.count_ref == 0
     en = agent.count_reply("How many people came to the night stall?", {**res, "riders": 0})
     assert en.language == "en" and en.reply_text.startswith("8 people on foot came in at Night stall (counter)")
+
+
+def test_wrong_year_in_a_tool_window_is_moved_to_the_recorded_years(monkeypatch):
+    from nazar.api import agent
+
+    monkeypatch.setattr(agent, "_YEAR_SPAN", (2026, 2026))
+    a = agent.fix_year({"time_from": "2021-11-21T08:30:00+05:30", "time_to": "2025-11-21T17:22", "camera_id": "lobby"})
+    assert a["time_from"] == "2026-11-21T08:30:00+05:30" and a["time_to"] == "2026-11-21T17:22"
+    ok = agent.fix_year({"time_from": "2026-11-21T08:30:00+05:30"})
+    assert ok["time_from"] == "2026-11-21T08:30:00+05:30"

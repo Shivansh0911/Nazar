@@ -10,6 +10,7 @@ interface Ctx {
   camerasError: string | null;
   camerasLoading: boolean;
   refreshCameras: () => Promise<void>;
+  refreshAlerts: () => Promise<void>;
   alerts: AlertOut[];
   wsConnected: boolean;
   onAlert: (fn: (a: AlertOut, update: boolean) => void) => () => void;
@@ -139,13 +140,26 @@ export function Providers({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const refreshAlerts = useCallback(async () => {
+    try {
+      const fresh = await api.alerts();
+      // keep alerts that arrived over the WebSocket meanwhile; the server list is the source of truth otherwise
+      setAlerts((prev) => {
+        const ids = new Set(fresh.map((a) => a.id));
+        return [...prev.filter((a) => !ids.has(a.id) && a.id > (fresh[0]?.id ?? 0)), ...fresh].slice(0, 100);
+      });
+    } catch {
+      /* the next tick retries */
+    }
+  }, []);
+
   useEffect(() => {
     if (!ready || isLogin) return;
     refreshCameras();
-    api.alerts().then(setAlerts).catch(() => undefined);
-    const id = setInterval(refreshCameras, 15000);
+    refreshAlerts();
+    const id = setInterval(() => { refreshCameras(); refreshAlerts(); }, 15000);
     return () => clearInterval(id);
-  }, [ready, isLogin, refreshCameras]);
+  }, [ready, isLogin, refreshCameras, refreshAlerts]);
 
   // WebSocket: alerts + camera status, with reconnect
   useEffect(() => {
@@ -204,7 +218,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   if (!ready && !isLogin) return <div className="min-h-dvh" />;
   return (
     <AppCtx.Provider
-      value={{ cameras, camerasError, camerasLoading, refreshCameras, alerts, wsConnected, onAlert, soundOn, setSoundOn, audioUnlocked, play, theme, setTheme, toast }}
+      value={{ cameras, camerasError, camerasLoading, refreshCameras, refreshAlerts, alerts, wsConnected, onAlert, soundOn, setSoundOn, audioUnlocked, play, theme, setTheme, toast }}
     >
       {children}
       <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-20 z-[60] flex flex-col items-center gap-2 px-4 md:bottom-6">

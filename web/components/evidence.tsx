@@ -194,6 +194,7 @@ export function JourneyView({ journey, onOpen }: { journey: Journey; onOpen: (t:
           <li key={s.track_id} className="relative mb-3 last:mb-0">
             <span className={`absolute -left-[21px] top-5 h-2.5 w-2.5 rounded-full ${s.anchor ? "bg-lime" : "bg-primary"}`} />
             <button onClick={() => onOpen({ track_id: s.track_id, camera_id: s.camera_id, cls: s.cls, t_start: s.t_start, level: s.level, why: s.why })}
+              aria-label={`Play journey step at ${s.camera_id}`}
               className="flex w-full items-center gap-3 rounded-xl p-1 text-left hover:bg-surface">
               {s.thumb_url ? (
                 // eslint-disable-next-line @next/next/no-img-element

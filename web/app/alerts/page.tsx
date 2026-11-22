@@ -25,7 +25,7 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 export default function AlertsPage() {
-  const { alerts, cameras, toast } = useApp();
+  const { alerts, cameras, toast, refreshAlerts } = useApp();
   const [tab, setTab] = useState<"alerts" | "security">("alerts");
   const [events, setEvents] = useState<SecEvent[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -38,7 +38,7 @@ export default function AlertsPage() {
   const load = useCallback(() => {
     api2.secEvents().then((e) => { setEvents(e); setErr(null); }).catch((e) => setErr(e.message));
   }, []);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); refreshAlerts(); }, [load, refreshAlerts]);
   useEffect(() => { if (!cam && cameras.length) setCam(cameras[0].id); }, [cameras, cam]);
 
   const preset = async (text: string, k: string) => {
@@ -55,11 +55,15 @@ export default function AlertsPage() {
   };
   const report = async (b: { alert_id?: number; sec_event_id?: number; title: string }) => {
     setBusy(`r${b.alert_id ?? b.sec_event_id}`);
+    // open the tab inside the click (popup blockers allow it), point it at the PDF when it is ready
+    const tab = window.open("", "_blank");
     try {
       const r = await api2.createReport({ ...b, language: "en" });
       toast("Incident report ready");
-      window.open(r.pdf_url, "_blank");
+      if (tab && !tab.closed) tab.location.href = r.pdf_url;
+      else window.location.href = r.pdf_url;
     } catch (e) {
+      tab?.close();
       toast((e as Error).message, "err");
     } finally {
       setBusy(null);

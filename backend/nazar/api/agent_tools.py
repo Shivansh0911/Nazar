@@ -197,7 +197,11 @@ def count_events(p: dict) -> dict:
     classes = ["backpack", "handbag", "suitcase"] if cls in ("any_bag", "bag") else [cls]
     if zone is None and event in ("enter", "exit", "cross_in", "cross_out", "dwell"):
         event = "present"
-    span = _coverage_span(cam, t_from, t_to) or (t_from, t_to)
+    span = _coverage_span(cam, t_from, t_to)
+    if span is None:
+        # no footage at all in that window: a "Confirmed 0" would be a lie - say where the footage actually is
+        return {"error": "no stored footage for this camera in that window - check the dates (current year: "
+                         f"{datetime.now(timezone.utc).year}) or use camera_gaps", "footage": coverage(cam)}
     step, bucket = auto_bucket(max(30.0, (span[1] - span[0]).total_seconds()), p.get("bucket"))
     min_s, min_conf = st.COUNT_MIN_SECONDS, st.COUNT_MIN_CONF
     if event == "present":

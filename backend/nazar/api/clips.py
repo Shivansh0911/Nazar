@@ -246,18 +246,41 @@ def reel(items: list[dict], total: int | None = None, max_s: float = 60.0, each_
     used = 0
     with _lock_for(key):
         if not storage.exists(key):
+            def prep(it: dict) -> list | None:
+                # decode + blur one moment (thread-local blurrer: safe to run several moments at once)
+                t0 = it["t"] - timedelta(seconds=0.5)
+                pieces = _sources(it["camera_id"], t0, t0 + timedelta(seconds=each_s))
+                return [img for _, img in _blurred_frames(it["camera_id"], pieces)] if pieces else None
+
+            def moments():
+                # v3: 3 workers, at most 4 moments in flight (bounded memory), yielded in order
+                from collections import deque
+                from concurrent.futures import ThreadPoolExecutor
+
+                with ThreadPoolExecutor(max_workers=3) as pool:
+                    q: deque = deque()
+                    it_iter = iter(items)
+                    for it in it_iter:
+                        q.append((it, pool.submit(prep, it)))
+                        if len(q) >= 4:
+                            break
+                    while q:
+                        it, fut = q.popleft()
+                        nxt = next(it_iter, None)
+                        if nxt is not None:
+                            q.append((nxt, pool.submit(prep, nxt)))
+                        yield it, fut.result()
+
             def produce(path: str) -> None:
                 nonlocal used
                 enc = None
                 first = None
-                for k, it in enumerate(items, 1):
-                    t0 = it["t"] - timedelta(seconds=0.5)
-                    pieces = _sources(it["camera_id"], t0, t0 + timedelta(seconds=each_s))
-                    if not pieces:
+                for k, (it, frames) in enumerate(moments(), 1):
+                    if not frames:
                         continue
                     used += 1
                     label = f"{k}/{total} - {to_local(it["t"]):%H:%M}"
-                    for _, img in _blurred_frames(it["camera_id"], pieces):
+                    for img in frames:
                         if enc is None:
                             enc = _Encoder(path, img.shape[1], img.shape[0])
                         if (img.shape[1], img.shape[0]) != enc.size:

@@ -372,8 +372,27 @@ def hit_thumbs(hits: list[dict], token: str | None) -> list[dict]:
 
 
 # ------------------------------------------------------------------------------------------------ the agent
+_YEAR_SPAN: tuple[int, int] | None = None
+
+
+def fix_year(a: dict) -> dict:
+    """Models sometimes write the wrong YEAR (2021/2025) in a time window. No footage exists outside the years we
+    have recorded, so such a year is moved to the current year (month, day and time kept). Logged, never silent."""
+    global _YEAR_SPAN
+    if _YEAR_SPAN is None:
+        r = db.fetch_one("SELECT min(t_start) AS a FROM coverage")
+        _YEAR_SPAN = ((r["a"].year if r and r["a"] else now_local().year), now_local().year)
+    lo, hi = _YEAR_SPAN
+    for k in ("time_from", "time_to"):
+        v = a.get(k)
+        if isinstance(v, str) and len(v) >= 4 and v[:4].isdigit() and not lo <= int(v[:4]) <= hi:
+            log.warning("tool window year %s outside recorded years %s-%s; using %s", v[:4], lo, hi, hi)
+            a[k] = f"{hi}{v[4:]}"
+    return a
+
+
 def _exec_tool(name: str, args: dict, ref: str, token: str | None) -> dict:
-    a = {k: v for k, v in args.items() if v is not None}
+    a = fix_year({k: v for k, v in args.items() if v is not None})
     if name == "search_tracks":
         r = agent_tools.search_tracks(a, ref=ref)
         attr_keys = ("upper_color", "lower_color", "carrying", "vehicle_type", "vehicle_color", "action", "text")
