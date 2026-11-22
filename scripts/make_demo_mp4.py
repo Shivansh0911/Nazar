@@ -18,6 +18,7 @@ ap.add_argument("--src", default=str(ROOT / "demo" / "nazar_v2.webm"))
 ap.add_argument("--fast", default=str(ROOT / "demo" / "nazar_v2_fast.json"))
 ap.add_argument("--out", default=str(ROOT / "demo" / "nazar_v2.mp4"))
 ap.add_argument("--speed", type=float, default=8.0)
+ap.add_argument("--max-wait", type=float, default=14.0, help="longest a sped-up wait may last in the output (s)")
 a = ap.parse_args()
 dur = float(probe(a.src)["duration"] or 0)
 fast = sorted((max(0.0, s), min(dur, e)) for s, e in json.loads(Path(a.fast).read_text()) if e - s > 1.5)
@@ -30,7 +31,7 @@ for s, e in fast:
         continue
     if s > cur:
         parts.append((cur, s, 1.0))
-    parts.append((s, e, a.speed))
+    parts.append((s, e, max(a.speed, (e - s) / a.max_wait)))
     cur = e
 if cur < dur:
     parts.append((cur, dur, 1.0))

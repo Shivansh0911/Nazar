@@ -57,8 +57,9 @@ Close heavy apps first — the laptop has 8 GB and the vision service uses ~2.8 
 9. **Insights:** ₹0 to index, ₹ per question (measured), the cost calculator, speed and accuracy tables.
 Hindi: *"रात 2 बजे के बाद night stall पर कितने लोग आए?"* · Face request: *"Find this person's face"* → polite refusal.
 
-Recorded run-through: `demo\nazar_v2.mp4` (re-record: `cd web; node ../scripts/demo_video_v2.mjs --channel chrome
---photo ..\demo\bag_photo.jpg; cd ..; python scripts/make_demo_mp4.py`).
+Recorded run-throughs: **`demo\nazar_full.mp4`** (every feature, chronological) and `demo\nazar_v2.mp4` (short judge
+cut). Re-record the full one: `cd web; node ../scripts/demo_full.mjs --wav ..\demo\q_hi.wav --photo ..\demo\bag_photo.jpg;
+cd ..; python scripts/make_demo_mp4.py --src demo/nazar_full.webm --fast demo/nazar_full_fast.json --out demo/nazar_full.mp4`.
 
 ## 6. Process the hackathon clip (already done) / your event camera
 - The clip is processed as camera **Builders venue** by `python scripts/demo_setup.py` (manifest entry with
@@ -90,6 +91,6 @@ never GPU instances, never Bedrock.
 
 ## 9. Submission checklist
 - [ ] Repo: https://github.com/Shivansh0911/Nazar (pushed, README renders with v2 screenshots)
-- [ ] Demo video: `demo\nazar_v2.mp4` (upload it; it is not committed)
+- [ ] Demo video: `demo\nazar_full.mp4` (full) or `demo\nazar_v2.mp4` (short) — upload it; videos are not committed
 - [ ] Slides from README: problem → three pillars → how it works (Mermaid + evidence levels) → measured results → privacy → roadmap
 - [ ] Pair Telegram before presenting (§4); close heavy apps; run `scripts\smoke.ps1` once

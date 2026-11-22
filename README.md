@@ -35,7 +35,14 @@ Plus security analytics out of the box — loitering, abandoned bag, object take
 after-hours presence, possible snatch — each a *Candidate* until a short AI check of blurred frames agrees.
 
 ## Demo video
-`demo/nazar_v2.mp4` (recorded from the real app in Chrome with `scripts/demo_video_v2.mjs`, waits sped up 8×):
+**`demo/nazar_full.mp4`** — the complete product in chronological order, recorded from the real app in Chrome with
+`scripts/demo_full.mjs` (waits sped up 8×): login → Today → add cameras (upload + live analysis, CCTV builder with Test
+connection, Excel import, phone) → zones & count lines → count with receipts, chart drill-down, human review and proof
+reel → any analysis with its SQL → heatmap → Hindi voice note → face-search refusal → search by words + AI
+verification → journey → search by photo → teach by name (YOLOE) and by photo → rule replayed on yesterday →
+WebRTC live wall → live alert → security events → incident PDF → reports → Telegram pairing → Insights.
+
+A shorter judge cut, `demo/nazar_v2.mp4` (`scripts/demo_video_v2.mjs`):
 upload the Builders-venue clip → live analysis view → Hinglish count with receipts + proof reel → "any analysis"
 with its SQL → search by words with AI verification → journey → search by photo → teach "laptop" → bag rule replays
 → the bag clip plays as a live camera → **live alert** with snapshot + voice note → incident PDF → Insights.

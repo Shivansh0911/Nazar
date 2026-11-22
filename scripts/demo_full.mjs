@@ -138,10 +138,8 @@ await pause(1500);
 await safe(page.click('button:has-text("Clear")', { timeout: 3000 }));
 await caption("Ask in Hinglish. Answers stream in; the number comes from SQL — never from the AI.", "4 · PROOF, NOT CLAIMS");
 await ask("Builders venue pe kitne log dikhe?", 3000);
-await caption("Confirmed count + receipts: every counted person is listed and playable. Tap a bar to see who was counted then.", "4 · PROOF, NOT CLAIMS");
-await pause(4000);
-await safe(page.locator("aside .recharts-bar-rectangle").nth(1).click({ timeout: 5000 }));
-await pause(3500);
+await caption("Confirmed count + receipts: every counted person is listed and playable, with a per-minute chart.", "4 · PROOF, NOT CLAIMS");
+await pause(6000);
 await safe(page.locator("aside label:has-text('Verify') input").check({ timeout: 5000 }));
 await safe(page.locator("aside button:has-text('ok?')").first().click({ timeout: 5000 }));
 await caption("A human can mark a receipt wrong: “N by AI · N−1 after your review” — stored for evaluation.", "4 · PROOF, NOT CLAIMS");
@@ -163,7 +161,7 @@ await ask("Lobby mein log kahan sabse zyada ruke? Heatmap dikhao", 6000);
 // 6. Hindi voice note + privacy refusal ------------------------------------------------------------------------------
 await caption("Tap the lime mic and speak — here a Hindi voice note. Reply in Devanagari, with a spoken answer.", "6 · VOICE, ANY LANGUAGE");
 await page.click('button[aria-label="Record a voice note"]');
-await pause(5500);
+await pause(6300);
 await page.click('button[aria-label="Stop recording"]');
 await pause(1500);
 await waitFast(answered);
@@ -192,7 +190,7 @@ if (await jb.count()) {
 }
 await page.click('button:has-text("Photo")');
 await pause(800);
-await page.setInputFiles('input[type="file"][accept="image/*"]', PHOTO);
+await safe(page.setInputFiles('input[type="file"][accept="image/*"]', PHOTO, { timeout: 10000 }));
 await pause(1000);
 await page.fill('input[placeholder^="Purpose"]', "lost bag at the venue");
 await caption("Search by photo: faces in the photo are blurred first; every photo search is audited with its purpose.", "7 · SEARCH LIKE GOOGLE PHOTOS");
@@ -208,7 +206,7 @@ await ask("Builders venue pe kursi (chair) pe nazar rakho", 5000);
 await page.goto(`${BASE}/camera/?id=builders-venue`);
 await pause(2500);
 await safe(page.fill('input[aria-label="Object to watch for"]', "green bag"));
-await page.setInputFiles('input[type="file"][accept="image/*"]', PHOTO);
+await safe(page.setInputFiles('input[type="file"][accept="image/*"]', PHOTO, { timeout: 10000 }));
 await caption("…or teach from a photo of your own bag / scooter: matched by appearance in every new frame.", "8 · TEACH IT ANYTHING");
 await waitFast(() => page.waitForSelector("text=/Now watching .* from your photo/", { timeout: 120000 }));
 await pause(5000);
@@ -221,20 +219,37 @@ await caption("Teach a rule in your words. It is replayed on yesterday's footage
 await ask("Jab bhi koi desk 14 se bag uthaye, mujhe batana", 4000);
 await safe(page.click('aside button:has-text("Activate")', { timeout: 8000 }));
 await pause(3000);
+const lastAlert = async () => ((await (await fetch(`${API}/api/alerts?limit=1`, { headers: H })).json())[0] || { id: 0 }).id;
+const alert0 = await lastAlert();
 await fetch(`${API}/api/cameras/office-desk/start`, { method: "POST", headers: H });
 await page.goto(`${BASE}/live/`);
 await caption("Live wall: low-latency WebRTC view, faces blurred, tracker boxes and live counts burned in.", "10 · LIVE");
 await waitFast(() => page.waitForSelector("text=/WebRTC/", { timeout: 120000 }));
+await safe(page.click('button[aria-label="Enlarge"]', { timeout: 5000 }));
 await pause(8000);
 await caption("The bag clip now plays as a live camera. Waiting for someone to take the bag (sped up)…", "10 · LIVE");
-await page.goto(`${BASE}/ask/`);
-await waitFast(() => page.waitForSelector("text=Alert ·", { timeout: 360000 }));
-await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-await caption("LIVE ALERT seconds after it happened — snapshot + Hinglish voice note. Also pushed to Telegram.", "10 · LIVE ALERT");
-await pause(9000);
+await waitFast(async () => {
+  for (let i = 0; i < 180 && (await lastAlert()) <= alert0; i++) await pause(3000);
+}, 4000);
+await page.goto(`${BASE}/alerts/`);
+await pause(1500);
+await caption("LIVE ALERT seconds after it happened — snapshot, clip + Hinglish voice note. Also pushed to Telegram.", "10 · LIVE ALERT");
+await pause(6500);
 await fetch(`${API}/api/cameras/office-desk/stop`, { method: "POST", headers: H });
 
-// 11. Security analytics + incident PDF -----------------------------------------------------------------------------
+// 11. Incident PDF from that alert + security analytics --------------------------------------------------------------
+await caption("One tap: an FIR-ready incident report for this alert.", "11 · INCIDENT REPORT");
+await page.evaluate(() => { window.open = (u) => { window.location.href = String(u).replace(/(\d+)_[a-f0-9]{6}\.pdf/, "$1_preview.png"); return null; }; });
+await safe(page.locator('button:has-text("Incident report (PDF)")').first().click({ timeout: 5000 }));
+await waitFast(() => page.waitForURL(/_preview\.png/, { timeout: 300000 }));
+await page.evaluate(() => {
+  const i = document.querySelector("img");
+  document.body.style.background = "#0A0F1F";
+  if (i) Object.assign(i.style, { width: "62%", height: "auto", margin: "0 auto", display: "block", cursor: "default" });
+}).catch(() => undefined);
+await caption("FIR-ready PDF: timeline, blurred frames, AI description (marked), evidence levels, SHA-256 hashes.", "11 · INCIDENT REPORT");
+await pause(3500);
+for (let i = 0; i < 6; i++) { await page.mouse.wheel(0, 420); await pause(1700); }
 await page.goto(`${BASE}/alerts/`);
 await pause(2000);
 await page.click('button:has-text("Security events")');
@@ -242,14 +257,8 @@ await pause(2000);
 await caption("Security analytics out of the box: object taken, abandoned bag, loitering, running, fall, crowding, after-hours, snatch.", "11 · SECURITY");
 await pause(6000);
 await safe(page.click('button:has-text("Object taken")', { timeout: 4000 }));
-await pause(2500);
-await caption("Heuristics are Candidates until an AI check of blurred frames agrees → Probable. Now: one-tap incident report.", "11 · SECURITY");
-await pause(3000);
-await page.evaluate(() => { window.open = (u) => { window.location.href = String(u).replace(/(\d+)_[a-f0-9]{6}\.pdf/, "$1_preview.png"); return null; }; });
-await safe(page.locator('button:has-text("Report")').first().click({ timeout: 5000 }));
-await waitFast(() => page.waitForURL(/_preview\.png/, { timeout: 240000 }));
-await caption("FIR-ready PDF: timeline, blurred frames, AI description (marked), evidence levels, SHA-256 hashes.", "11 · INCIDENT REPORT");
-await pause(8000);
+await caption("Heuristics are Candidates until an AI check of blurred frames agrees → Probable. Every incident gets a PDF.", "11 · SECURITY");
+await pause(5000);
 await page.goto(`${BASE}/reports/`);
 await pause(4000);
 
