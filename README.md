@@ -34,7 +34,26 @@ the same wall of video.
 Plus security analytics out of the box — loitering, abandoned bag, object taken, running, fall, crowding,
 after-hours presence, possible snatch — each a *Candidate* until a short AI check of blurred frames agrees.
 
-## Demo video
+## Demo film
+**`demo/nazar_film.mp4`** — the narrated film (with sound): a narrator explains each chapter, and you **hear** the
+owner's real Hindi voice note, Nazar's real spoken Hindi reply and the live alert's Hinglish voice note
+(`scripts/film_build.py` mixes them onto the app recording, loudness-normalised). *Watch link: upload the film and
+paste the link here.*
+
+### What v3 added (22 Nov 2026)
+- **Proof that it works:** every one of the 66 API routes tested (auth, shapes, errors), every rule trigger and
+  security detector on recorded footage, the Telegram bot's real handlers, a 12-note voice matrix in 8 languages, and
+  an end-to-end suite in real Chrome where every kind of clip must actually play — see [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md).
+- **Faster answers:** count questions are answered from the SQL result in one model round — 6-question profile p50
+  8.0 s → 4.1 s, first words 6.0 s → 3.3 s; counts ~2.5 s.
+- **Riders are not pedestrians:** a person riding a motorcycle/bicycle is counted separately; count accuracy 3/3
+  windows exact.
+- **Night-shift design:** warm ink, one signal-amber accent, REC red, Fraunces + Geist + Geist Mono, CCTV crop-mark
+  frames on every video, a "paper" light theme.
+- **Honesty fixes:** no "Confirmed 0" for a time with no footage; the model's year slips are corrected server-side;
+  peak counts carry receipts; Hindi/Tamil/Telugu/Bengali/Gujarati/Kannada voice notes all answered with the SQL number.
+
+## Demo video (silent, captioned)
 **`demo/nazar_full.mp4`** — the complete product in chronological order, recorded from the real app in Chrome with
 `scripts/demo_full.mjs` (waits sped up 8×): login → Today → add cameras (upload + live analysis, CCTV builder with Test
 connection, Excel import, phone) → zones & count lines → count with receipts, chart drill-down, human review and proof

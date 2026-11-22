@@ -1,96 +1,82 @@
-# FINAL STEPS (v2) — what you do now
+# FINAL STEPS (v3) — what you do now
 
-Nazar v2 is built, tested on this laptop with your real keys, committed and pushed (`main`). Everything below is
+Nazar v3 is built and tested on this laptop with your real keys, committed and pushed (`main`). Everything below is
 PowerShell from the repo root. Nothing was created on AWS.
 
-## 1. Environment status (`.env`)
+## 1. Environment (`.env`)
 | Key | Status | Needed for |
 |---|---|---|
 | `OPENAI_API_KEY` | ✅ set (5/5 models OK) | all AI features |
-| `TELEGRAM_BOT_TOKEN` | ✅ set · `TELEGRAM_BOT_USERNAME=nazar_hackathon_bot` added | Telegram bot |
-| `KAGGLE_API_TOKEN` / `KAGGLE_USERNAME` / `KAGGLE_KEY` | ✅ set (not used yet — dataset evals were skipped, see §8) | optional evals |
-| `FERNET_KEY` | ✅ generated automatically on first use | encrypts camera passwords — keep it, never commit |
-| `ROBOFLOW_API_KEY` | empty (optional) | Indian-vehicle fine-tune (not done) |
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN`, `S3_BUCKET` | empty | only for deploy (Workshop page → refresh when `ExpiredToken`) |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME=nazar_hackathon_bot` | ✅ set (bot reachable) | Telegram bot |
+| `KAGGLE_*` | ✅ set | MOT17 tracking eval |
+| `FERNET_KEY` | ✅ auto-generated | encrypts camera passwords — keep it, never commit |
+| AWS keys, `S3_BUCKET` | empty | only for deploy (Workshop page → refresh on `ExpiredToken`) |
 
-## 2. Check commands
+## 2. Check everything (what each proves: `docs/TEST_PLAN.md`)
 ```powershell
 .\.venv\Scripts\Activate.ps1
-python scripts/check_env.py                       # every line ✅
-python scripts/check_models.py                    # 5/5 models OK
-cd backend; python -m pytest -q; cd ..            # 74 passed, 1 skipped (the no-key test)
-cd web; npm run lint; npm run build; cd ..        # clean
-powershell -ExecutionPolicy Bypass -File scripts\smoke.ps1   # SMOKE: PASS (health, ask, rule, vision index, visual search, receipts, security, metrics)
+python scripts/check_env.py; python scripts/check_models.py
+cd backend; python -m pytest -q; python -m pytest -q -m live; cd ..     # unit + every API route + triggers + telegram
+python scripts/privacy_spotcheck.py        # served media -> 0 faces found
+python scripts/eval_counts.py              # 3/3 windows exact
+python scripts/eval_voice_matrix.py        # 12 voice notes, 8 languages
+python scripts/eval_battery.py             # 32 questions, latency p50/p90, cost
+cd web; node ../scripts/e2e.mjs --viewport both --theme dark; cd ..   # real Chrome, every clip must play
+powershell -ExecutionPolicy Bypass -File scripts\smoke.ps1
 ```
-Re-measure anytime: `python scripts/eval_battery.py` (27 questions), `python scripts/eval_counts.py`,
-`python scripts/eval_languages.py`, `python scripts/bench_pipeline.py`, `python scripts/live_alert_test.py [--teach]`.
 
-## 3. Start everything
+## 3. Start
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1
 ```
-Opens windows for: Docker (Postgres + MediaMTX), **vision service** (SigLIP 2, :8010), worker, API (:8000), web
-(:3000) and the **Telegram bot** (because the token is set). Open **http://localhost:3000**, passcode `nazar2026`.
-Close heavy apps first — the laptop has 8 GB and the vision service uses ~2.8 GB while indexing.
+Docker (Postgres + MediaMTX), vision service (:8010), worker, API (:8000), web (:3000), Telegram bot. Open
+**http://localhost:3000**, passcode `nazar2026`. 8 GB laptop: close other apps (vision ~2.8 GB; the API grows to ~2.4 GB
+after teaching objects — restart it if memory runs low).
 
-## 4. Pair Telegram (2 minutes, needs your phone)
-1. Web app → **Settings** → **Get pairing code** (6 digits, valid 10 min; a QR opens the bot).
-2. In Telegram, open **@nazar_hackathon_bot** and send `/pair <code>` → "Jud gaya ✅".
-3. Try: a voice note *"kal raat counter pe kitne log aaye?"*, a photo of a bag, `/today`, `/report`.
-   Alerts from active rules now arrive there with snapshot, clip and voice note.
-(Your earlier `/start` was sent before the bot ran, so it was not seen — pairing needs a fresh `/pair`.)
+## 4. Telegram — the 60-second phone test (please do this; also screen-record it for the film)
+1. Web app → **Settings** → **Get pairing code**.
+2. Telegram → **@nazar_hackathon_bot** → send `/pair <code>` → "Jud gaya ✅".
+3. Send a voice note: *"kal raat counter pe kitne log aaye?"* → text + voice reply + clip.
+4. Trigger an alert: Ask (camera Office desk) → *"Jab bhi koi desk 14 se bag uthaye, mujhe batana"* → Activate → Live →
+   Office desk → Play as live → ~5 min later the alert (snapshot + voice note + clip) lands on the phone.
+5. `python scripts/telegram_selftest.py` then sends the latest alert + digest to your paired chat and prints message ids.
+Save the phone screen recording as `demo\telegram_phone.mp4`, then rebuild the film:
+`python scripts/film_build.py --telegram demo/telegram_phone.mp4`.
 
-## 5. Judge demo script (≈ 4 minutes)
-1. **Today** (home): cameras incl. *Builders venue* (the clip from this venue), overnight digest, alerts.
-2. **Any video, analysed live:** Cameras → **Add camera → Upload video** → drop `samples\hackathon.mp4` (or a
-   judge's phone video) → the live analysis view shows boxes and counts at ~15× real time → **Ask about it**.
-3. **Count with receipts:** Ask → *"Builders venue pe kitne log dikhe?"* → Confirmed number, receipts, tap
-   **Play proof reel**.
-4. **Any analysis:** *"Which camera was busiest and at what hour?"* → table + chart → **How this was computed**.
-5. **Search like Google Photos:** Search → *"person carrying a bag"* → **Verify top 8 with AI** (Probable =
-   AI-verified) → **Journey** on a hit. Then **Photo** → upload `demo\bag_photo.jpg` (purpose: "lost bag").
-6. **Teach:** Ask → *"Builders venue pe laptop pe nazar rakho"* → it replays on stored frames first, then watches live.
-7. **Rule + live alert:** Ask (camera: Office desk) → *"Jab bhi koi desk 14 se bag uthaye, mujhe batana"* →
-   "would have fired 1 time" → **Activate** → Live → Office desk → **Play as live** → ~2.5 min later the alert
-   arrives (web + Telegram) with snapshot and voice note.
-8. **Incident report:** Alerts & rules → **Incident report (PDF)** → timeline, blurred frames, SHA-256 hashes.
-9. **Insights:** ₹0 to index, ₹ per question (measured), the cost calculator, speed and accuracy tables.
-Hindi: *"रात 2 बजे के बाद night stall पर कितने लोग आए?"* · Face request: *"Find this person's face"* → polite refusal.
+## 5. Judge demo (film order, ≈ 5 min)
+Today → Add camera (upload the venue clip, live analysis; CCTV test connection; Excel; phone QR) → zones → Ask
+*"Builders venue pe kitne log dikhe?"* (Confirmed, receipts, proof reel) → *"Which camera was busiest and at what hour?"*
+(SQL shown) + heatmap → Hindi voice note (spoken Hindi reply) → face request refused → Search (words, verify, journey,
+photo) → teach *"kursi"* + teach by photo → rule *"Jab bhi koi desk 14 se bag uthaye…"* (would have fired N times) →
+Activate → Live (WebRTC, boxes, faces blurred) → alert with voice note → incident PDF (hashes) → security events →
+Telegram pairing → Insights (₹0 to index, ₹ per question, speed, accuracy).
 
-Recorded run-throughs: **`demo\nazar_full.mp4`** (every feature, chronological) and `demo\nazar_v2.mp4` (short judge
-cut). Re-record the full one: `cd web; node ../scripts/demo_full.mjs --wav ..\demo\q_hi.wav --photo ..\demo\bag_photo.jpg;
-cd ..; python scripts/make_demo_mp4.py --src demo/nazar_full.webm --fast demo/nazar_full_fast.json --out demo/nazar_full.mp4`.
-
-## 6. Process the hackathon clip (already done) / your event camera
-- The clip is processed as camera **Builders venue** by `python scripts/demo_setup.py` (manifest entry with
-  `start: file` = its own recording time). Any other file: Add camera → Upload video.
-- **Your live event camera:** Add camera → **CCTV / DVR** (brand preset or URL → **Test connection** → Add) or
-  **Phone** (Larix QR). It starts live; draw zones/count lines on its camera page; teach objects there too.
+## 6. Demo film
+- **`demo\nazar_film.mp4`** — narrated (AAC audio: narrator + the owner's Hindi voice note + Nazar's spoken Hindi reply
+  + the alert's voice note). Rebuild: `cd web; node ../scripts/demo_full.mjs --wav ..\demo\q_hi.wav --photo ..\demo\bag_photo.jpg; cd ..;
+  python scripts/film_build.py`.
+- `demo\nazar_full.mp4` (silent, captions) and `demo\nazar_v2.mp4` (short v2 cut). Videos are not committed — upload them.
 
 ## 7. Deploy (when you decide)
-Follow `infra/DEPLOY.md` (one CPU c7i.xlarge EC2 + RDS + S3 + Amplify). v2 additions: the prod compose now runs
-`vision` (SigLIP 2 on CPU) and `telegram` services; the image installs Chromium + Noto fonts for Hindi PDFs.
-Validate: `docker compose -f infra/docker-compose.prod.yml config -q`. You click/approve every AWS resource;
-never GPU instances, never Bedrock.
+`infra/DEPLOY.md`: one CPU EC2 + RDS + S3 + Amplify; `docker compose -f infra/docker-compose.prod.yml config -q` and
+`caddy validate` (with `DOMAIN` set) pass. You approve every AWS resource; never GPU instances, never Bedrock.
 
-## 8. Known issues and what was not done
-| Item | Status / why | How to verify / next step |
-|---|---|---|
-| Answer latency | p50 9.7 s full, first words 8.0 s (targets 5 s / 2.5 s not met) | Insights → Answer speed; `eval_battery.py` |
-| Dense footage speed | 8.9× real time on rush-hour footage (17.7× on the venue clip); goal 15× | `bench_pipeline.py` |
-| Counting over-count | motorcycle riders count as people (shop counter 4 vs 3); venue and office desk exact | `eval_counts.py` |
-| W10 live view | WebRTC works (< ~0.5 s glass-to-glass); live detection ran 2.3 fps under load (goal 10); boxes are burned into the stream | `cd web; node ../scripts/webrtc_check.mjs` |
-| W7 "Call Nazar" realtime voice | **not done** (P2) | — |
-| Teach by photo | works via the SigLIP 2 index (Candidates, ~20 s after the object appears); YOLOE visual prompts were too weak on our frames | `python scripts/live_alert_test.py --photo demo/bag_photo.jpg` |
-| Tracking (MOT17) | evaluated on 2 sequences: default BoT-SORT 42 ID switches vs v1 44; with camera-motion compensation 12 (2x slower; set per PTZ camera) | `python scripts/eval_tracking.py` |
-| Snatch / theft datasets | **not downloaded** (multi-GB); security heuristics checked on demo clips only | — |
-| Marathi voice | transcription returned Gurmukhi script → not claimed | `eval_languages.py` |
-| Telegram end-to-end | bot runs and polls; pairing/voice/alert delivery need your phone (§4) | §4 |
-| Memory | ~0.6 GB free with everything running on 8 GB; the vision service keeps SigLIP loaded (unloading crashed torch on Windows) | close other apps |
-| Backend Docker image | not rebuilt here (PyPI timeouts earlier) | `docker build -f infra/Dockerfile.backend .` on EC2 |
+## 8. Known issues (honest numbers, 22 Nov 2026)
+| Item | Status |
+|---|---|
+| Answer latency | count questions ~2.5 s (one model round); 6-question profile p50 4.1 s, first words 3.3 s; 32-question battery p50 9.0 s, first words 7.2 s (multi-tool questions 8–15 s) |
+| Live edge | loop ~8 fps with all services up (was ~3), ~6 frames/s analysed; target 8 |
+| Dense footage | 8.9× real time (venue clip 17.7×); target 15× not met |
+| Telegram on a real phone | not yet tested — §4 |
+| UI | Night-shift redesign of every page done; public story landing page, 3D login camera and ⌘K bar not done |
+| Film | `demo\nazar_film.mp4` 5:24 with sound (narrator + real Hindi voice note + spoken reply + alert voice note); shows the UI just before the Night-shift re-skin (re-recording on the new look ran out of memory twice — re-record with other apps closed: §6); no Remotion title scenes, 1440×900, no 2-minute cut |
+| Spoken Hinglish | transcribed in Devanagari → the voice reply comes in Hindi script |
+| Running / fall / snatch | unit-tested on synthetic paths only (no real clip; snatch dataset not downloaded) |
+| Marathi voice | not claimed |
+| Chrome DevTools MCP | fails to connect (Playwright covers the checks) |
+| Memory | 8 GB is tight: an upload failed once with "unable to allocate" while everything + Chrome recording ran |
 
 ## 9. Submission checklist
-- [ ] Repo: https://github.com/Shivansh0911/Nazar (pushed, README renders with v2 screenshots)
-- [ ] Demo video: `demo\nazar_full.mp4` (full) or `demo\nazar_v2.mp4` (short) — upload it; videos are not committed
-- [ ] Slides from README: problem → three pillars → how it works (Mermaid + evidence levels) → measured results → privacy → roadmap
-- [ ] Pair Telegram before presenting (§4); close heavy apps; run `scripts\smoke.ps1` once
+- [ ] Repo https://github.com/Shivansh0911/Nazar (pushed)
+- [ ] Upload `demo\nazar_film.mp4` and paste its link in the README ("Demo film")
+- [ ] Do the Telegram phone test (§4) before presenting; run `scripts\smoke.ps1` once

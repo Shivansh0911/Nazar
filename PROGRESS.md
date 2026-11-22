@@ -271,3 +271,57 @@ the next session; this build used the Playwright npm package (`scripts/shots_v2.
 Feature work is frozen. If resuming: (1) pair Telegram from Settings and verify a voice-note question + an alert
 arrive (FINAL_STEPS §4); (2) optional left: snatch/theft dataset eval, 10 fps live detection under load, W7 realtime voice; (3) deploy per
 infra/DEPLOY.md only with the user's explicit yes for every AWS resource.
+
+---
+# v3 (BUILD_PROMPT_V3.md) — 22 Nov 2026
+
+## P1 verify everything ✅ (with known issues below)
+- `docs/TEST_PLAN.md`: every feature → test → status.
+- New suites: `tests/test_routes.py` (all 66 API routes: auth sweep, shapes, error paths, clip encoding H.264/yuv420p/
+  even/faststart/not black), `tests/test_triggers_recorded.py` (every trigger + detector on recorded footage),
+  `tests/test_telegram.py` (real handlers with constructed Updates, incl. live text/voice/report), `test_riders.py`,
+  level + count-reply + year-guard tests. `scripts/e2e.mjs` (real Chrome; every clip kind must play: currentTime
+  advances + sampled frame not black), `scripts/eval_voice_matrix.py` (12 voice notes, 8 languages, webm + m4a),
+  `scripts/privacy_spotcheck.py` (11 served files → 0 faces), `scripts/profile_ask.py`, `scripts/telegram_selftest.py`.
+- Fixes found by the tests: riders separated from people on foot (v3 #5; the old "shop counter 4 vs 3" was a wrong
+  hand count — re-counted: vendor + three men = 4, Nazar 4); count questions answered from the SQL result in ONE model
+  round (p50 8.0 s → 4.1 s, first words 6.0 → 3.3 s; counts ~2.5 s); coverage end rounded up (night stall gave 3/6/8
+  for the same question); regional-language transcription hint (te 0.50→1.00, kn 0.15→0.95, gu 0.18→0.75); model
+  year slips (2021/2025) corrected server-side; no "Confirmed 0" for a window without footage; peak counts carry
+  receipts; person searches include scene frames (still green bag); teach replays cleaned up on delete; 404s for
+  unknown journey/custom object; proof reel built in parallel (25 s → 11 s); alert inbox refreshes (was empty after a
+  failed first fetch); incident PDF opens in a tab created inside the click (popup blockers); live edge loop 3 → ~8 fps
+  (throttled live snapshots, YuNet on alternate frames, per-stage timings in the edge summary).
+- Results: pytest 118 passed / 1 skipped (non-live, final code) + 11 live tests green earlier; routes 18/18; triggers 12/12; telegram 10/10 (incl. live);
+  voice 12/12; battery 29/32, the 3 failures fixed and re-run 6/6 (first words p50 7.2 s, full p50 9.0 s over all 32); counts 3/3 exact; privacy 0 faces; e2e desktop 21/21, phone 15/21 before the
+  evidence-sheet helper (all fails were the hidden desktop panel, fixed in the suite).
+
+## P2 UI — partly
+- Done: "Night shift" design system across every page (warm ink #0B0D0E, signal amber #FFB020 as the single accent,
+  REC red, Confirmed green; Fraunces display, Geist UI, Geist Mono data; CCTV crop-mark + scanline frames on every
+  video player; light "paper" theme; reduced-motion honoured). Reviewed in both themes at 1440 and 390 px.
+- Not done (time): public story landing page, 3D CCTV camera on login, ⌘K command bar, Lighthouse run.
+
+## P4 film
+- `scripts/film_build.py`: the app recording + narration (gpt-4o-mini-tts, one narrator voice) per chapter + the real
+  Hindi voice note + Nazar's real spoken Hindi reply + the alert's Hinglish voice note, loudness-normalised.
+  Result: `demo/nazar_film.mp4` 5:24, H.264 + AAC, RMS-checked (voice note 7149, Hindi reply 2013, alert voice 2100).
+  It uses the recording made just before the Night-shift re-skin (two re-recordings on the new look crashed with
+  out-of-memory on 8 GB: the upload's edge died). Caption times recovered with `scripts/captions_from_video.py`.
+  Not done: Remotion title scenes, 1920×1080 (recorded at 1440×900), the 2-minute cut, burned-in .ass subtitles
+  (the on-screen chapter captions carry the text).
+
+## Known issues (v3)
+| Issue | Tried | Verify |
+|---|---|---|
+| Live analysed frames ~6/s (loop ~8 fps) vs 8 target | snapshot throttle, YuNet alternate frames, interval jitter | edge summary `loop_fps` |
+| Dense footage 8.9× (target 15×) | not attempted in v3 (no quick safe win) | `bench_pipeline.py` |
+| Spoken Hinglish is transcribed in Devanagari → reply in Hindi script | prompt hint | `eval_voice_matrix.py` |
+| Multi-tool questions still 8–15 s (bag pickup ~15 s) | count fast path only | `profile_ask.py` |
+| Chrome DevTools MCP "connection closed" (also with --headless) | re-added once | `claude mcp list` |
+| Telegram on a real phone not tested (no chat paired) | offline handler tests + selftest | `telegram_selftest.py` |
+| Running/fall have no real demo clip; snatch dataset not downloaded; Marathi not claimed; backend Docker image not built here | — | TEST_PLAN §6 |
+
+## v3 — exact next step
+Pair Telegram on the phone (FINAL_STEPS §4) and record the 60-second phone clip; then
+`python scripts/film_build.py --telegram demo/telegram_phone.mp4`. Deploy only with the user's explicit yes.
