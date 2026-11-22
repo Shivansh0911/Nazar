@@ -305,9 +305,9 @@ infra/DEPLOY.md only with the user's explicit yes for every AWS resource.
 ## P4 film
 - `scripts/film_build.py`: the app recording + narration (gpt-4o-mini-tts, one narrator voice) per chapter + the real
   Hindi voice note + Nazar's real spoken Hindi reply + the alert's Hinglish voice note, loudness-normalised.
-  Result: `demo/nazar_film.mp4` 5:24, H.264 + AAC, RMS-checked (voice note 7149, Hindi reply 2013, alert voice 2100).
-  It uses the recording made just before the Night-shift re-skin (two re-recordings on the new look crashed with
-  out-of-memory on 8 GB: the upload's edge died). Caption times recovered with `scripts/captions_from_video.py`.
+  Result: `demo/nazar_film.mp4` 7:05 on the Night-shift UI, H.264 + AAC, RMS-checked (voice note 7156, Hindi reply
+  2007, alert voice 2078). Recorded with the API restarted and `NAZAR_BATCH=8` (earlier attempts ran out of memory).
+  The slow incident-PDF moment was re-recorded with `scripts/film_patch.mjs` and spliced in.
   Not done: Remotion title scenes, 1920×1080 (recorded at 1440×900), the 2-minute cut, burned-in .ass subtitles
   (the on-screen chapter captions carry the text).
 

@@ -69,7 +69,7 @@ Telegram pairing → Insights (₹0 to index, ₹ per question, speed, accuracy)
 | Dense footage | 8.9× real time (venue clip 17.7×); target 15× not met |
 | Telegram on a real phone | not yet tested — §4 |
 | UI | Night-shift redesign of every page done; public story landing page, 3D login camera and ⌘K bar not done |
-| Film | `demo\nazar_film.mp4` 5:24 with sound (narrator + real Hindi voice note + spoken reply + alert voice note); shows the UI just before the Night-shift re-skin (re-recording on the new look ran out of memory twice — re-record with other apps closed: §6); no Remotion title scenes, 1440×900, no 2-minute cut |
+| Film | `demo\nazar_film.mp4` 7:05 on the Night-shift UI, with sound (narrator + real Hindi voice note + spoken Hindi reply + alert voice note + closing line); no Remotion title scenes, 1440×900, no 2-minute cut |
 | Spoken Hinglish | transcribed in Devanagari → the voice reply comes in Hindi script |
 | Running / fall / snatch | unit-tested on synthetic paths only (no real clip; snatch dataset not downloaded) |
 | Marathi voice | not claimed |

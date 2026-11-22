@@ -1,4 +1,4 @@
-﻿"""Edge process (one per camera):  python -m nazar.edge.run --camera <id> [--source ...]
+"""Edge process (one per camera):  python -m nazar.edge.run --camera <id> [--source ...]
 
 decode -> sample -> motion gate -> YOLO + ByteTrack -> 5 Hz paths -> face-blurred crops/segments/snapshot -> Postgres
 """
@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import signal
 import sys
 import threading
@@ -46,7 +47,7 @@ def parse_args(argv=None):
     ap.add_argument("--device", default="auto")
     ap.add_argument("--job", type=int)
     ap.add_argument("--legacy", action="store_true", help="files: v1 OpenCV loop with re-encoded segments")
-    ap.add_argument("--batch", type=int, default=16)
+    ap.add_argument("--batch", type=int, default=int(os.environ.get("NAZAR_BATCH", "16")))  # 8 on an 8 GB laptop under load
     return ap.parse_args(argv)
 
 

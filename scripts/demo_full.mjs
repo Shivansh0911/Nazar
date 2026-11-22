@@ -40,12 +40,12 @@ async function caption(text, chapter) {
       d = document.createElement("div");
       d.id = "demo-cap";
       Object.assign(d.style, { position: "fixed", left: "50%", transform: "translateX(-50%)", bottom: "26px", zIndex: "99999",
-        background: "rgba(10,15,31,.95)", color: "#fff", padding: "12px 22px", borderRadius: "16px", border: "1px solid #2F6BFF",
-        font: "600 17px Inter, system-ui, sans-serif", maxWidth: "82%", textAlign: "center", pointerEvents: "none",
+        background: "rgba(11,13,14,.94)", color: "#fff", padding: "12px 22px", borderRadius: "16px", border: "1px solid #FFB020",
+        font: "600 22px Geist, Inter, system-ui, sans-serif", maxWidth: "78%", textAlign: "center", pointerEvents: "none",
         boxShadow: "0 10px 30px rgba(0,0,0,.45)", lineHeight: "1.4" });
       document.body.appendChild(d);
     }
-    d.innerHTML = (c ? `<div style="font:700 11px Inter;letter-spacing:.12em;color:#D4F53C;margin-bottom:4px">${c}</div>` : "") + t;
+    d.innerHTML = (c ? `<div style="font:700 13px Inter;letter-spacing:.16em;color:#FFB020;margin-bottom:6px;font-family:Geist Mono,monospace">${c}</div>` : "") + t;
   }, [text, chapter || ""]).catch(() => undefined);
   log(`${chapter ? chapter + " | " : ""}${text}`);
 }
@@ -68,10 +68,10 @@ async function titleCard(lines, ms = 6000) {
   await page.evaluate((ls) => {
     const d = document.createElement("div");
     d.id = "demo-title";
-    Object.assign(d.style, { position: "fixed", inset: "0", zIndex: "100000", background: "radial-gradient(circle at 50% 30%, #1B3FB8 0%, #0A0F1F 60%)",
+    Object.assign(d.style, { position: "fixed", inset: "0", zIndex: "100000", background: "radial-gradient(circle at 50% 35%, #2A1E08 0%, #0B0D0E 62%)",
       color: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "14px",
       font: "500 22px Inter, system-ui, sans-serif", textAlign: "center", padding: "40px" });
-    d.innerHTML = ls.map((l, i) => i === 0 ? `<div style="font:400 64px 'Instrument Serif',Georgia,serif">${l}</div>`
+    d.innerHTML = ls.map((l, i) => i === 0 ? `<div style="font:500 78px Fraunces,Georgia,serif;letter-spacing:-.02em">${l}</div>`
       : `<div style="opacity:.9">${l}</div>`).join("");
     document.body.appendChild(d);
   }, lines);
@@ -86,7 +86,7 @@ const H = { "X-Nazar-Token": tok, "Content-Type": "application/json" };
 await page.goto(`${BASE}/login/`);
 await titleCard(["Nazar", "Ask your CCTV anything — in Hindi, English or Hinglish", "1 · Search footage like Google Photos — by words, by photo",
   "2 · Teach it anything, no training — it checks yesterday first, then watches live", "3 · Proof, not claims — every number has receipts, every incident a PDF",
-  "<span style='color:#D4F53C'>No face recognition, ever · indexing costs ₹0 in AI</span>"], 9000);
+  "<span style='color:#FFB020'>No face recognition, ever · indexing costs ₹0 in AI</span>"], 9000);
 await caption("A single passcode, rate-limited. Faces are blurred in everything Nazar shows or sends.", "LOGIN");
 await pause(2500);
 await page.fill('input[type="password"]', "nazar2026");
@@ -244,7 +244,7 @@ await safe(page.locator('button:has-text("Incident report (PDF)")').first().clic
 await waitFast(() => page.waitForURL(/_preview\.png/, { timeout: 300000 }));
 await page.evaluate(() => {
   const i = document.querySelector("img");
-  document.body.style.background = "#0A0F1F";
+  document.body.style.background = "#0B0D0E";
   if (i) Object.assign(i.style, { width: "62%", height: "auto", margin: "0 auto", display: "block", cursor: "default" });
 }).catch(() => undefined);
 await caption("FIR-ready PDF: timeline, blurred frames, AI description (marked), evidence levels, SHA-256 hashes.", "11 · INCIDENT REPORT");
@@ -277,7 +277,7 @@ await pause(10000);
 await page.evaluate(() => window.scrollTo(0, 700));
 await pause(4000);
 await titleCard(["Nazar", "Counts with receipts · search by words or photo · rules that check yesterday first", "Live alerts on web + Telegram · FIR-ready reports",
-  "<span style='color:#D4F53C'>No face recognition, ever</span>"], 6000);
+  "<span style='color:#FFB020'>No face recognition, ever</span>"], 6000);
 
 const v = page.video();
 await ctx.close();
