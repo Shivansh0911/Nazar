@@ -40,7 +40,8 @@ def transcription_prompt(camera_id: str | None) -> str:
                         (camera_id,) if camera_id else None)
     labels = sorted({z.get("label") or z.get("name") for r in rows for z in (r["zones"] or [])})
     names = sorted({r["name"] for r in rows})
-    return ("Shop CCTV questions in Hindi, English or Hinglish. Zones: " + ", ".join(labels[:30]) +
+    return ("Shop CCTV questions in an Indian language - Hindi, Hinglish, English, Tamil, Telugu, Bengali, Gujarati "
+            "or Kannada - each written in its own script. Zones: " + ", ".join(labels[:30]) +
             ". Cameras: " + ", ".join(names[:20]) +
             ". Words: camera, counter, gate, desk, parcel, bag, kitne log, kab, raat, subah.")
 

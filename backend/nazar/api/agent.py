@@ -274,7 +274,12 @@ def camera_context(selected: str | None) -> str:
     for r in db.fetch_all("SELECT id, name, kind, zones FROM cameras ORDER BY created_at"):
         zones = ", ".join(f"{z['name']} ({z.get('label', z['name'])})" for z in (r["zones"] or [])) or "no zones"
         c = cov.get(r["id"])
-        span = f"{c['from'][:16]} to {c['to'][:16]}" if c else "no footage yet"
+        if c:  # round the end UP to the minute: a window ending at "02:05" must not cut off footage from 02:05:25
+            end = datetime.fromisoformat(c["to"])
+            end = (end + timedelta(minutes=1)).replace(second=0, microsecond=0) if end.second or end.microsecond else end
+            span = f"{c['from'][:16]} to {end.isoformat()[:16]}"
+        else:
+            span = "no footage yet"
         lines.append(f"- {r['id']}: \"{r['name']}\"; zones: {zones}; data coverage: {span}")
     now = now_local()
     sel = f"The owner selected camera '{selected}' in the app; use it unless they name another." if selected else \
