@@ -98,6 +98,14 @@ async function suite(vpName, theme) {
     console.log(`${status === "pass" ? "PASS" : "FAIL"} [${tag}] ${name} (${row.seconds.toFixed(1)} s)${status === "fail" ? " - " + detail : detail ? " - " + JSON.stringify(detail) : ""}`);
   }
   const askBox = () => page.locator('input[placeholder^="Ask"], textarea[placeholder^="Ask"]').last();
+  // phones: the evidence panel is a bottom sheet opened from the answer's "N receipts / N evidence items" chip
+  async function evidence() {
+    if (vpName !== "mobile") return;
+    await page.keyboard.press("Escape").catch(() => {});
+    const chip = page.locator("button").filter({ hasText: /\d+ receipts|evidence item/ }).last();
+    if (await chip.count()) await chip.click();
+    await page.waitForTimeout(600);
+  }
   async function ask(q) {
     await askBox().fill(q);
     await page.keyboard.press("Enter");
@@ -130,6 +138,7 @@ async function suite(vpName, theme) {
     await page.goto(`${BASE}/ask/`);
     await ask("Builders venue pe kitne log dikhe?");
     await page.getByText(/Confirmed/).first().waitFor({ timeout: 10000 });
+    await evidence();
     const rec = await page.locator('[aria-label^="Play receipt"]').count();
     if (rec < 1) throw new Error("no receipts shown");
     return { receipts: rec };
@@ -141,6 +150,7 @@ async function suite(vpName, theme) {
     return { luma };
   });
   await step("proof reel plays", async () => {
+    await evidence();
     await page.locator('button:has-text("Play proof reel")').first().click();
     const luma = await clipPlays(page);
     await page.keyboard.press("Escape");
@@ -148,11 +158,13 @@ async function suite(vpName, theme) {
   });
   await step("any analysis with SQL", async () => {
     await ask("Which camera was busiest and at what hour?");
+    await evidence();
     await page.getByText(/How this was computed/).first().click();
     await page.getByText(/SELECT/i).first().waitFor({ timeout: 10000 });
   });
   await step("heatmap", async () => {
     await ask("Lobby mein log kahan sabse zyada ruke? Heatmap dikhao");
+    await evidence();
     await page.getByText(/Where time was spent/).first().waitFor({ timeout: 30000 });
   });
   await step("privacy: face request refused", async () => {
@@ -205,6 +217,7 @@ async function suite(vpName, theme) {
     await page.goto(`${BASE}/ask/`);
     await page.selectOption('select[aria-label="Camera"] >> nth=1', { label: "Office desk" }).catch(() => {});
     await ask("Jab bhi koi desk 14 se bag uthaye, mujhe batana");
+    await evidence();
     await page.getByText(/would have fired|fired \d|replay/i).first().waitFor({ timeout: 20000 });
     await page.locator('button:has-text("Activate")').first().click({ timeout: 30000 });
     await page.getByText(/Active|activated|watching/i).first().waitFor({ timeout: 10000 });
@@ -268,6 +281,9 @@ async function suite(vpName, theme) {
     if (raw > 2) throw new Error("raw JSON blocks on the Insights page");
   });
   await ctx.close();
+  // each suite uploads the same clip: remove its camera so the next suite starts clean
+  const cams = await (await fetch(`${API}/api/cameras`, { headers: H })).json();
+  for (const c of cams.filter((c) => /e2e_upload/i.test(c.name || c.id))) await fetch(`${API}/api/cameras/${c.id}`, { method: "DELETE", headers: H });
 }
 
 try {
