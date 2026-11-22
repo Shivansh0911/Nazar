@@ -5,6 +5,26 @@
 > that laptop is on — if it does not load, run it yourself with the steps below: it is the same product).
 > **Code:** https://github.com/Shivansh0911/Nazar · **Demo film:** see `VIDEO.md` · **Full test plan:** `docs/TEST_PLAN.md`
 
+### Credentials at a glance
+| What | Login / password | Where |
+|---|---|---|
+| Web app (owner — the only user role) | passcode **`nazar2026`** (no username) | http://localhost:3000/login/ · live demo above |
+| API | `POST /api/auth` with `{"passcode":"nazar2026"}` → token → header `X-Nazar-Token: <token>` | http://localhost:8000 · Swagger UI `/docs` |
+| Postgres (Docker) | user **`nazar`**, password **`nazar`**, database **`nazar`** | `localhost:5433` (`DATABASE_URL` in `.env`) |
+| Telegram bot | no password: web app → Settings → **Get pairing code** → send `/pair <code>` to the bot | needs `TELEGRAM_BOT_TOKEN` in `.env` |
+| Phone camera / RTSP | no password for local MediaMTX; DVR passwords you enter are stored encrypted | Cameras → Add camera |
+| OpenAI | `OPENAI_API_KEY` in `.env` (a budget-capped test key if one is supplied with the submission) | `.env` |
+Change the passcode with `DEMO_PASSCODE=` in `.env` and restart the API.
+
+### 5-minute quick start (Linux/macOS)
+```bash
+cp .env.example .env            # put OPENAI_API_KEY=... in it (skip if the zip already has a .env)
+bash scripts/setup.sh           # installs everything (first run ~5-10 min: PyTorch + models)
+bash scripts/start_all.sh       # API :8000, web :3000, vision :8010, worker (+ Telegram bot)
+source .venv/bin/activate && python scripts/demo_setup.py   # demo cameras (GPU ~3 min, CPU ~15 min)
+# open http://localhost:3000  ->  passcode nazar2026  ->  Ask: "Builders venue pe kitne log dikhe?"
+```
+
 Nazar turns any camera (a shop DVR over RTSP, a phone, or a video file) into something you can talk to, in Hindi,
 English or Hinglish (and Tamil, Telugu, Bengali, Gujarati, Kannada by voice):
 **Ask** ("Raat 2 baje ke baad counter pe kitne log aaye?") → a number counted from the database, with the receipts
