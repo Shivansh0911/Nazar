@@ -167,7 +167,7 @@ export default function AskPage() {
                   <motion.div key={m.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
                     {m.role === "user" && (
                       <div className="flex justify-end">
-                        <div className="max-w-[85%] rounded-3xl rounded-br-lg bg-primary px-4 py-2.5 text-white">
+                        <div className="max-w-[85%] rounded-3xl rounded-br-lg bg-primary px-4 py-2.5 text-on-primary">
                           {m.voiceSeconds !== undefined ? (
                             <div>
                               <div className="flex items-center gap-1.5 text-sm"><Mic size={14} /> voice note {fmtDuration(m.voiceSeconds)}</div>
@@ -205,7 +205,7 @@ export default function AskPage() {
                             {m.resp.clarify && (
                               <div className="flex flex-wrap gap-1.5">
                                 {m.resp.clarify.options.map((o) => <button key={o} onClick={() => askText(o)} disabled={busy}
-                                  className="rounded-full border border-primary/50 px-3 py-1 text-xs text-primary hover:bg-primary hover:text-white">{o}</button>)}
+                                  className="rounded-full border border-primary/50 px-3 py-1 text-xs text-primary hover:bg-primary hover:text-on-primary">{o}</button>)}
                               </div>
                             )}
                             {m.resp.audio_url && <AudioReply url={m.resp.audio_url} autoPlay={!!m.autoPlay} />}
@@ -222,7 +222,7 @@ export default function AskPage() {
                             {m.resp.followups.length > 0 && (
                               <div className="flex flex-wrap gap-1.5 pt-1">
                                 {m.resp.followups.map((f) => <button key={f} disabled={busy} onClick={() => askText(f)}
-                                  className="rounded-full bg-surface-2 px-3 py-1 text-xs text-foreground hover:bg-primary hover:text-white">{f}</button>)}
+                                  className="rounded-full bg-surface-2 px-3 py-1 text-xs text-foreground hover:bg-primary hover:text-on-primary">{f}</button>)}
                               </div>
                             )}
                             <div className="text-[10px] text-muted">

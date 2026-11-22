@@ -43,7 +43,7 @@ export default function TodayPage() {
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ask anything — “raat 2 baje ke baad counter pe kitne log aaye?”"
             aria-label="Ask anything" className="min-w-0 flex-1 bg-transparent py-2 text-[15px] outline-none" />
           <Link href="/ask/" aria-label="Ask with your voice" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-lime text-slate-900"><Mic size={18} /></Link>
-          <button type="submit" className="hidden rounded-full bg-primary px-4 py-2 text-sm font-medium text-white sm:block">Ask</button>
+          <button type="submit" className="hidden rounded-full bg-primary px-4 py-2 text-sm font-medium text-on-primary sm:block">Ask</button>
         </form>
       </div>
 

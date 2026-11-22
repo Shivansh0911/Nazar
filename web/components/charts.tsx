@@ -7,7 +7,7 @@ import type { SeriesPoint } from "@/lib/types";
 import type { ChartOut, TableOut } from "@/lib/types2";
 
 const TZ = "Asia/Kolkata";
-const PALETTE = ["#2F6BFF", "#D4F53C", "#10B981", "#F59E0B", "#A78BFA", "#22D3EE", "#F43F5E"];
+const PALETTE = ["#FFB020", "#9A9C98", "#3DDC97", "#E8E4D8", "#C98200", "#5E6A70", "#FF3B30"];
 
 function bucketLabel(iso: string, bucket?: string) {
   const d = new Date(iso);
@@ -37,7 +37,7 @@ export function ActivityChart({ series, bucket, selected, onSelect, height = 150
           <Bar dataKey="n" radius={[6, 6, 2, 2]} onClick={(d) => onSelect?.(selected === (d as { t: string }).t ? null : (d as { t: string }).t)}
             style={{ cursor: onSelect ? "pointer" : "default" }}>
             {data.map((d) => (
-              <Cell key={d.t} fill={selected && selected !== d.t ? "var(--line)" : d.n ? "#2F6BFF" : "var(--line)"} />
+              <Cell key={d.t} fill={selected && selected !== d.t ? "var(--line)" : d.n ? "#FFB020" : "var(--line)"} />
             ))}
           </Bar>
         </BarChart>
@@ -58,7 +58,7 @@ export function ChartCard({ chart }: { chart: ChartOut }) {
               <XAxis dataKey="x" tick={{ fill: "var(--muted)", fontSize: 10 }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fill: "var(--muted)", fontSize: 10 }} tickLine={false} axisLine={false} />
               <Tooltip contentStyle={tooltipStyle} />
-              <Line type="monotone" dataKey="y" stroke="#2F6BFF" strokeWidth={2.5} dot={false} />
+              <Line type="monotone" dataKey="y" stroke="#FFB020" strokeWidth={2.5} dot={false} />
             </LineChart>
           ) : chart.type === "pie" ? (
             <PieChart>
@@ -72,7 +72,7 @@ export function ChartCard({ chart }: { chart: ChartOut }) {
               <XAxis dataKey="x" tick={{ fill: "var(--muted)", fontSize: 10 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
               <YAxis tick={{ fill: "var(--muted)", fontSize: 10 }} tickLine={false} axisLine={false} />
               <Tooltip cursor={{ fill: "var(--primary-soft)" }} contentStyle={tooltipStyle} />
-              <Bar dataKey="y" fill="#2F6BFF" radius={[6, 6, 2, 2]} />
+              <Bar dataKey="y" fill="#FFB020" radius={[6, 6, 2, 2]} />
             </BarChart>
           )}
         </ResponsiveContainer>

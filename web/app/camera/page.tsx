@@ -69,7 +69,7 @@ export default function CameraPage() {
         <h1 className="text-xl font-semibold">{cam.name}</h1>
         <span className={`rounded-full px-2 py-0.5 text-xs ${cam.live ? "bg-danger text-white" : "bg-line text-muted"}`}>{cam.live ? "● LIVE" : "offline"}</span>
         <div className="ml-auto flex gap-2">
-          <button onClick={toggle} disabled={busy} className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm ${cam.edge_running ? "border border-line" : "bg-primary text-white"}`}>
+          <button onClick={toggle} disabled={busy} className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm ${cam.edge_running ? "border border-line" : "bg-primary text-on-primary"}`}>
             {cam.edge_running ? <><Square size={14} /> Stop</> : <><Play size={14} /> {cam.kind === "file" ? "Play as live" : "Start"}</>}
           </button>
           <Link href={`/ask/?camera=${encodeURIComponent(cam.id)}`} className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-3 py-1.5 text-sm text-primary"><MessageCircle size={14} /> Ask</Link>

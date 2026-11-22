@@ -31,7 +31,7 @@ export default function NewCameraPage() {
       <div className="mb-5 grid grid-cols-2 gap-1 rounded-3xl border border-line bg-surface p-1 md:flex md:w-fit md:rounded-full">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => setTab(id)}
-            className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm ${tab === id ? "bg-primary text-white" : "text-muted hover:text-foreground"}`}>
+            className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm ${tab === id ? "bg-primary text-on-primary" : "text-muted hover:text-foreground"}`}>
             <Icon size={15} /> {label}
           </button>
         ))}
@@ -159,7 +159,7 @@ function Analysis({ cam }: { cam: CameraOut }) {
       <div className="relative aspect-video overflow-hidden rounded-2xl bg-black">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={mjpegUrl(cam.id)} alt="analysis view" className="h-full w-full object-contain" />
-        {!ready && <span className="absolute left-2 top-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-white">ANALYSING {st.speed_x ? `${st.speed_x}×` : ""}</span>}
+        {!ready && <span className="absolute left-2 top-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-on-primary">ANALYSING {st.speed_x ? `${st.speed_x}×` : ""}</span>}
       </div>
       <div className="flex flex-col">
         <div className="font-medium">{cam.name}</div>
@@ -172,7 +172,7 @@ function Analysis({ cam }: { cam: CameraOut }) {
         {a?.job?.error && <div className="mt-2"><ErrorBox message={a.job.error} /></div>}
         <div className="mt-auto flex flex-wrap gap-2 pt-4">
           <Link href={`/ask/?camera=${encodeURIComponent(cam.id)}&q=${encodeURIComponent("Is video mein kitne log aaye?")}`}
-            className={`rounded-full px-4 py-2 text-sm font-medium ${done >= 60 || ready ? "bg-primary text-white" : "pointer-events-none bg-line text-muted"}`}>
+            className={`rounded-full px-4 py-2 text-sm font-medium ${done >= 60 || ready ? "bg-primary text-on-primary" : "pointer-events-none bg-line text-muted"}`}>
             {ready ? "Ask about it" : `Ask now about the first ${Math.max(1, Math.floor(done / 60))} min`}
           </Link>
           <Link href={`/camera/?id=${encodeURIComponent(cam.id)}`} className="rounded-full border border-line px-4 py-2 text-sm">Draw zones</Link>
@@ -210,7 +210,7 @@ function CctvTab() {
   };
   if (cam) return (
     <Card><div className="flex items-center gap-2 text-success"><CheckCircle2 size={18} /> {cam.name} added and starting.</div>
-      <Link href={`/camera/?id=${encodeURIComponent(cam.id)}`} className="mt-3 inline-block rounded-full bg-primary px-4 py-2 text-sm text-white">Draw zones →</Link></Card>
+      <Link href={`/camera/?id=${encodeURIComponent(cam.id)}`} className="mt-3 inline-block rounded-full bg-primary px-4 py-2 text-sm text-on-primary">Draw zones →</Link></Card>
   );
   return (
     <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
@@ -299,7 +299,7 @@ function ExcelTab() {
       <div className="flex flex-wrap items-center gap-2">
         <a href={tpl("xlsx")} className="inline-flex items-center gap-1.5 rounded-full border border-line px-4 py-2 text-sm hover:bg-surface-2"><Download size={15} /> Template .xlsx</a>
         <a href={tpl("csv")} className="inline-flex items-center gap-1.5 rounded-full border border-line px-4 py-2 text-sm hover:bg-surface-2"><Download size={15} /> Template .csv</a>
-        <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-white">
+        <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-on-primary">
           <FileSpreadsheet size={15} /> {busy === "probe" ? "Checking every camera…" : "Upload filled sheet"}
           <input type="file" accept=".xlsx,.csv" className="hidden" onChange={(e) => upload(e.target.files?.[0] || null)} />
         </label>

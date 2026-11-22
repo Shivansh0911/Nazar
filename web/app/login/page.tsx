@@ -49,7 +49,7 @@ export default function LoginPage() {
           <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="accent-[var(--primary)]" /> Remember this device
         </label>
         {err && <div role="alert" className="mt-3 text-sm text-danger">{err}</div>}
-        <button type="submit" disabled={busy || !pass} className="mt-5 w-full rounded-2xl bg-primary py-3 font-semibold text-white transition hover:brightness-110 disabled:opacity-50">
+        <button type="submit" disabled={busy || !pass} className="mt-5 w-full rounded-2xl bg-primary py-3 font-semibold text-on-primary transition hover:brightness-110 disabled:opacity-50">
           {busy ? "Checking…" : "Continue"}
         </button>
         <p className="mt-5 flex items-start gap-1.5 text-xs text-muted"><ShieldCheck size={14} className="mt-px shrink-0" /> Faces are blurred before anything is shown or sent. No face recognition, ever.</p>

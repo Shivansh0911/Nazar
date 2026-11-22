@@ -93,10 +93,10 @@ export function ClipPlayer({ target, onClose }: { target: ClipTarget; onClose: (
           const oy = (c.height - dh) / 2;
           const p = nearest(clip.path, clip.t0_ms + v.currentTime * 1000);
           if (p) {
-            ctx.strokeStyle = "#D4F53C";
+            ctx.strokeStyle = "#FFB020";
             ctx.lineWidth = 3 * dpr;
             ctx.strokeRect(ox + p[1] * dw, oy + p[2] * dh, (p[3] - p[1]) * dw, (p[4] - p[2]) * dh);
-            ctx.fillStyle = "#D4F53C";
+            ctx.fillStyle = "#FFB020";
             ctx.font = `${12 * dpr}px sans-serif`;
             ctx.fillText(clsLabel[clip.cls || "person"] || "", ox + p[1] * dw, Math.max(12 * dpr, oy + p[2] * dh - 4 * dpr));
           }
@@ -138,7 +138,7 @@ export function ClipPlayer({ target, onClose }: { target: ClipTarget; onClose: (
             <X size={18} />
           </button>
         </div>
-        <div className="relative w-full overflow-hidden rounded-2xl bg-black" style={{ aspectRatio: "16 / 9" }}>
+        <div className="cctv relative w-full overflow-hidden rounded-2xl bg-black" style={{ aspectRatio: "16 / 9" }}>
           {clip ? (
             <>
               <video ref={videoRef} src={clip.url} poster={(clip as { poster_url?: string }).poster_url || undefined} controls autoPlay muted playsInline onError={() => setPlayErr(true)} className="absolute inset-0 h-full w-full object-contain" />
@@ -163,7 +163,7 @@ export function ClipPlayer({ target, onClose }: { target: ClipTarget; onClose: (
           <button
             onClick={findAgain}
             disabled={simLoading}
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-sm font-medium text-on-primary disabled:opacity-60"
           >
             <Search size={15} /> Find again
           </button>

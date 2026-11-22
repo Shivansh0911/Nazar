@@ -76,7 +76,7 @@ export default function AlertsPage() {
       actions={<Link href="/rules/" className="rounded-full border border-line px-4 py-2 text-sm hover:bg-surface-2">Manage rules</Link>}>
       <div className="mb-4 flex gap-1 rounded-full border border-line bg-surface p-1 md:w-fit">
         {([["alerts", "Alert inbox", Bell], ["security", "Security events", ShieldAlert]] as const).map(([id, label, Icon]) => (
-          <button key={id} onClick={() => setTab(id)} className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm ${tab === id ? "bg-primary text-white" : "text-muted"}`}>
+          <button key={id} onClick={() => setTab(id)} className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm ${tab === id ? "bg-primary text-on-primary" : "text-muted"}`}>
             <Icon size={15} /> {label}
           </button>
         ))}
@@ -112,9 +112,9 @@ export default function AlertsPage() {
       ) : (
         <div>
           <div className="mb-3 flex flex-wrap gap-1.5">
-            <button onClick={() => setFilter("")} className={`rounded-full px-3 py-1 text-xs ${!filter ? "bg-primary text-white" : "border border-line"}`}>All</button>
+            <button onClick={() => setFilter("")} className={`rounded-full px-3 py-1 text-xs ${!filter ? "bg-primary text-on-primary" : "border border-line"}`}>All</button>
             {Object.entries(TYPE_LABEL).map(([k, v]) => (
-              <button key={k} onClick={() => setFilter(k)} className={`rounded-full px-3 py-1 text-xs ${filter === k ? "bg-primary text-white" : "border border-line"}`}>{v}</button>
+              <button key={k} onClick={() => setFilter(k)} className={`rounded-full px-3 py-1 text-xs ${filter === k ? "bg-primary text-on-primary" : "border border-line"}`}>{v}</button>
             ))}
           </div>
           {err && <ErrorBox message={err} onRetry={load} />}

@@ -1,34 +1,39 @@
 @import "tailwindcss";
 
-/* "Night watch": dark first, light theme on request. Levels differ by shape, not only colour. */
+/* "Night shift": a calm security console that borrows real CCTV/DVR details - monospace OSD timestamps, a red REC
+   dot for live, crop-mark corners on video. One brand accent: signal amber (infrared). Levels differ by shape. */
 :root {
-  --background: #0a0f1f;
-  --surface: #111827;
-  --surface-2: #172036;
-  --foreground: #e7ebf3;
-  --muted: #8b96ad;
-  --line: #222d47;
-  --primary: #2f6bff;
-  --primary-soft: rgba(47, 107, 255, 0.16);
-  --lime: #d4f53c;
-  --danger: #f43f5e;
-  --success: #10b981;
-  --amber: #f59e0b;
+  --background: #0b0d0e;
+  --surface: #141719;
+  --surface-2: #1b1f22;
+  --foreground: #eceae4;
+  --muted: #9a9c98;
+  --line: #262b2e;
+  --primary: #ffb020;
+  --on-primary: #0b0d0e;
+  --primary-soft: rgba(255, 176, 32, 0.13);
+  --lime: #ffb020;
+  --danger: #ff3b30;
+  --success: #3ddc97;
+  --amber: #ffb020;
   color-scheme: dark;
 }
 
+/* light "paper" */
 :root[data-theme="light"] {
-  --background: #f3f5fa;
+  --background: #f4f1ea;
   --surface: #ffffff;
-  --surface-2: #f6f8fc;
-  --foreground: #0b1222;
-  --muted: #5b6680;
-  --line: #e2e7f0;
-  --primary: #2f6bff;
-  --primary-soft: #e8eeff;
-  --danger: #e11d48;
-  --success: #059669;
-  --amber: #d97706;
+  --surface-2: #ece8df;
+  --foreground: #111312;
+  --muted: #5c5f5b;
+  --line: #ddd8cc;
+  --primary: #9a5b00;
+  --on-primary: #ffffff;
+  --primary-soft: rgba(154, 91, 0, 0.1);
+  --lime: #c98200;
+  --danger: #d92d20;
+  --success: #0e8a5f;
+  --amber: #9a5b00;
   color-scheme: light;
 }
 
@@ -40,12 +45,14 @@
   --color-muted: var(--muted);
   --color-line: var(--line);
   --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
   --color-primary-soft: var(--primary-soft);
   --color-lime: var(--lime);
   --color-danger: var(--danger);
   --color-success: var(--success);
   --color-amber: var(--amber);
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-geist);
+  --font-mono: var(--font-geist-mono);
   --font-display: var(--font-display);
 }
 
@@ -53,14 +60,53 @@ html,
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-inter), system-ui, sans-serif;
+  font-family: var(--font-geist), system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
   overflow-x: hidden;
 }
 
+/* editorial words, monospace data */
 .font-display {
   font-family: var(--font-display), Georgia, serif;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+  font-optical-sizing: auto;
+}
+.font-osd,
+.tabular {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* CCTV frame: thin crop-mark corners + faint scanlines, on video only */
+.cctv {
+  position: relative;
+}
+.cctv::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  pointer-events: none;
+  z-index: 2;
+  background:
+    linear-gradient(var(--primary), var(--primary)) top left / 14px 1.5px no-repeat,
+    linear-gradient(var(--primary), var(--primary)) top left / 1.5px 14px no-repeat,
+    linear-gradient(var(--primary), var(--primary)) top right / 14px 1.5px no-repeat,
+    linear-gradient(var(--primary), var(--primary)) top right / 1.5px 14px no-repeat,
+    linear-gradient(var(--primary), var(--primary)) bottom left / 14px 1.5px no-repeat,
+    linear-gradient(var(--primary), var(--primary)) bottom left / 1.5px 14px no-repeat,
+    linear-gradient(var(--primary), var(--primary)) bottom right / 14px 1.5px no-repeat,
+    linear-gradient(var(--primary), var(--primary)) bottom right / 1.5px 14px no-repeat;
+  opacity: 0.85;
+}
+.cctv::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.07) 0 1px, transparent 1px 3px);
+  mix-blend-mode: multiply;
 }
 
 .scroll-thin::-webkit-scrollbar {
@@ -73,8 +119,8 @@ body {
 }
 
 .glass {
-  background: color-mix(in srgb, var(--surface) 82%, transparent);
-  backdrop-filter: blur(14px);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(12px);
 }
 
 .skeleton {
@@ -88,8 +134,8 @@ body {
 }
 
 @keyframes pulse-ring {
-  0% { box-shadow: 0 0 0 0 rgba(212, 245, 60, 0.7); }
-  100% { box-shadow: 0 0 0 18px rgba(212, 245, 60, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(255, 176, 32, 0.6); }
+  100% { box-shadow: 0 0 0 18px rgba(255, 176, 32, 0); }
 }
 .mic-recording {
   animation: pulse-ring 1.2s ease-out infinite;
@@ -105,4 +151,8 @@ body {
 :focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

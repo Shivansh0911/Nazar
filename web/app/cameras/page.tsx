@@ -15,7 +15,7 @@ export default function CamerasPage() {
     <Page wide>
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-semibold">Cameras</h1>
-        <Link href="/cameras/new/" className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white">
+        <Link href="/cameras/new/" className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-on-primary">
           <Plus size={16} /> Add camera
         </Link>
       </div>
@@ -80,7 +80,7 @@ function CameraCard({ cam, onChanged }: { cam: CameraOut; onChanged: () => void 
         {err && <div className="mt-1 text-xs text-danger">{err}</div>}
         <div className="mt-2 flex gap-2">
           <button onClick={toggle} disabled={busy}
-            className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium disabled:opacity-60 ${cam.edge_running ? "border border-line" : "bg-primary text-white"}`}>
+            className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium disabled:opacity-60 ${cam.edge_running ? "border border-line" : "bg-primary text-on-primary"}`}>
             {cam.edge_running ? <><Square size={12} /> Stop</> : <><Play size={12} /> {cam.kind === "file" ? "Play as live" : "Start"}</>}
           </button>
           <Link href={`/ask/?camera=${encodeURIComponent(cam.id)}`} className="rounded-full bg-primary-soft px-3 py-1 text-xs font-medium text-primary">Ask</Link>

@@ -154,7 +154,7 @@ export function RuleCard({ rule, onOpen, onChange }: { rule: RuleDraft; onOpen?:
           onClick={toggle}
           disabled={busy || !state.rule_id}
           className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold disabled:opacity-60 ${
-            state.active ? "border border-line text-foreground" : "bg-primary text-white"
+            state.active ? "border border-line text-foreground" : "bg-primary text-on-primary"
           }`}
         >
           {state.active ? <><Pause size={14} /> Pause</> : <><Zap size={14} /> Activate</>}
@@ -232,7 +232,7 @@ export function AlertBubble({ alert, onOpen, autoPlay }: { alert: AlertOut; onOp
         {alert.audio_url ? <AudioReply url={alert.audio_url} autoPlay={autoPlay} /> : <span className="text-xs text-muted">Voice note pending…</span>}
         <button
           onClick={() => onOpen({ track_id: alert.track_id, camera_id: alert.camera_id, t_start: alert.t, level: "confirmed", why: "rule hit" })}
-          className="rounded-full bg-primary px-3 py-1 text-xs font-medium text-white"
+          className="rounded-full bg-primary px-3 py-1 text-xs font-medium text-on-primary"
         >
           Open clip
         </button>

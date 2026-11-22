@@ -163,7 +163,7 @@ export function Composer({
               onClick={send}
               disabled={busy || !text.trim()}
               aria-label="Send"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-white disabled:opacity-40"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary disabled:opacity-40"
             >
               <SendHorizontal size={20} />
             </button>

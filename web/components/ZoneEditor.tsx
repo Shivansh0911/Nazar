@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { ArrowLeftRight, Minus, Plus, Save, Sparkles, Trash2, Undo2 } from "lucide-react";
 import type { Zone } from "@/lib/types";
 
-const COLORS = ["#2F6BFF", "#16a34a", "#e11d48", "#d97706", "#7c3aed", "#0891b2"];
+const COLORS = ["#FFB020", "#16a34a", "#e11d48", "#d97706", "#7c3aed", "#0891b2"];
 
 function slugify(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 40) || "zone";
@@ -116,7 +116,7 @@ export function ZoneEditor({
             update((zs) => zs.map((z, i) => (i === drag.z ? { ...z, polygon: z.polygon.map((p, j) => (j === drag.p ? [+x.toFixed(4), +y.toFixed(4)] : p)) } : z)));
           }}
         >
-          <defs><marker id="nz-arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#D4F53C" /></marker></defs>
+          <defs><marker id="nz-arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#FFB020" /></marker></defs>
           {zones.map((z, i) => {
             const c = COLORS[i % COLORS.length];
             const pts = z.polygon.map(([x, y]) => `${x * 1000},${y * H}`).join(" ");
@@ -134,8 +134,8 @@ export function ZoneEditor({
                       return (
                         <>
                           <line x1={ax} y1={ay} x2={bx} y2={by} stroke={c} strokeWidth={i === sel ? 7 : 5} strokeLinecap="round" />
-                          <line x1={mx} y1={my} x2={mx + nx * 60} y2={my + ny * 60} stroke="#D4F53C" strokeWidth={5} markerEnd="url(#nz-arrow)" />
-                          <text x={mx + nx * 75} y={my + ny * 75} fill="#D4F53C" fontSize={H / 26} fontWeight={700} textAnchor="middle" style={{ paintOrder: "stroke", stroke: "#000", strokeWidth: 4 }}>IN</text>
+                          <line x1={mx} y1={my} x2={mx + nx * 60} y2={my + ny * 60} stroke="#FFB020" strokeWidth={5} markerEnd="url(#nz-arrow)" />
+                          <text x={mx + nx * 75} y={my + ny * 75} fill="#FFB020" fontSize={H / 26} fontWeight={700} textAnchor="middle" style={{ paintOrder: "stroke", stroke: "#000", strokeWidth: 4 }}>IN</text>
                         </>
                       );
                     })()}
@@ -168,7 +168,7 @@ export function ZoneEditor({
         <button onClick={suggest} disabled={!!busy} className="inline-flex items-center gap-1 rounded-full border border-line px-3 py-1.5 text-sm disabled:opacity-50">
           <Sparkles size={14} /> {busy === "suggest" ? "Thinking…" : "Suggest zones with AI"}
         </button>
-        <button onClick={save} disabled={!!busy || !dirty} className="ml-auto inline-flex items-center gap-1 rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50">
+        <button onClick={save} disabled={!!busy || !dirty} className="ml-auto inline-flex items-center gap-1 rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-on-primary disabled:opacity-50">
           <Save size={14} /> {busy === "save" ? "Saving…" : "Save"}
         </button>
       </div>

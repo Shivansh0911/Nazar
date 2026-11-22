@@ -18,15 +18,15 @@ export function LogoMark({ className = "h-8 w-8" }: { className?: string }) {
     <svg viewBox="0 0 64 64" className={className} aria-hidden>
       <defs>
         <linearGradient id="nz-g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#2F6BFF" />
-          <stop offset="1" stopColor="#1B3FB8" />
+          <stop offset="0" stopColor="#FFB020" />
+          <stop offset="1" stopColor="#3A2A0A" />
         </linearGradient>
       </defs>
       <circle cx="32" cy="32" r="30" fill="url(#nz-g)" />
-      <circle cx="32" cy="32" r="24" fill="none" stroke="#0A0F1F" strokeOpacity=".35" strokeWidth="3" />
+      <circle cx="32" cy="32" r="24" fill="none" stroke="#0B0D0E" strokeOpacity=".35" strokeWidth="3" />
       <path d="M12 32c5-8.5 12-13 20-13s15 4.5 20 13c-5 8.5-12 13-20 13s-15-4.5-20-13z" fill="#fff" />
-      <circle cx="32" cy="32" r="8.5" fill="#0A0F1F" />
-      <circle cx="32" cy="32" r="4" fill="#D4F53C" />
+      <circle cx="32" cy="32" r="8.5" fill="#0B0D0E" />
+      <circle cx="32" cy="32" r="4" fill="#FFB020" />
       <circle cx="35" cy="29" r="1.6" fill="#fff" />
     </svg>
   );
@@ -283,7 +283,7 @@ export function Btn({ children, onClick, disabled, kind = "primary", type = "but
   type?: "button" | "submit"; className?: string; "aria-label"?: string; title?: string;
 }) {
   const k = {
-    primary: "bg-primary text-white hover:brightness-110",
+    primary: "bg-primary text-on-primary hover:brightness-110",
     ghost: "border border-line text-foreground hover:bg-surface-2",
     soft: "bg-primary-soft text-primary hover:brightness-110",
     lime: "bg-lime text-slate-900 hover:brightness-105",

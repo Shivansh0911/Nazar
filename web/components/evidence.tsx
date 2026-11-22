@@ -24,7 +24,7 @@ export function VideoModal({ title, url, poster, onClose, sub }: { title: string
           <div className="min-w-0 flex-1"><div className="truncate font-medium">{title}</div>{sub && <div className="text-xs text-muted">{sub}</div>}</div>
           <button onClick={onClose} className="rounded-full p-2 hover:bg-surface-2" aria-label="Close"><X size={18} /></button>
         </div>
-        <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-black">
+        <div className="cctv relative aspect-video w-full overflow-hidden rounded-2xl bg-black">
           {!url ? (
             <div className="absolute inset-0 flex items-center justify-center text-white/70"><Spinner label="Cutting the clip (faces blurred)…" /></div>
           ) : err ? (
