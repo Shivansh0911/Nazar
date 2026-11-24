@@ -60,6 +60,7 @@ def compute_metrics() -> dict:
                                         "AND at >= now() - interval '24 hours'") or 0)
     per_q = q.get("p50")
     per_cap = cap.get("per_caption") or cap_all.get("per_caption")
+    emb = _pct("SELECT avg(cost_usd) per_call, sum(cost_usd) total, count(*) n FROM usage WHERE kind='embed'")
     dist = {"confirmed": 0, "probable": 0, "candidate": 0}
     for r in db.fetch_all("SELECT answer FROM queries WHERE answer IS NOT NULL ORDER BY id DESC LIMIT 500"):
         ans = r["answer"] or {}
@@ -91,6 +92,8 @@ def compute_metrics() -> dict:
             "verify_per_call_inr": r_inr(ver.get("per_call")), "verify_per_image_inr": r_inr(ver.get("per_image")),
             "verifications": int(ver.get("n") or 0),
             "report_inr": r_inr(rep.get("per_report")), "reports": int(rep.get("n") or 0),
+            "embed_calls": int(emb.get("n") or 0), "embed_total_inr": round(float(emb.get("total") or 0) * inr, 4),
+            "embed_per_call_inr": r_inr(emb.get("per_call")),
             "caption_inr": r_inr(per_cap), "captions_24h_inr": round(captions_today * inr, 2),
         },
         "latency": {"p50_ms": lat.get("p50"), "p90_ms": lat.get("p90"), "first_text_p50_ms": lat.get("f50"),

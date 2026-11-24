@@ -284,7 +284,7 @@ def test_ask_stream_and_audio(c, ids):
     r = c.post("/api/ask", json={"text": "Office desk pe kitne log dikhe?", "camera_id": "office-desk"}, timeout=180)
     assert r.status_code == 200, r.text
     a = r.json()
-    assert a.get("text") or a.get("answer")
+    assert a.get("reply_text")
     with c.stream("POST", "/api/ask/stream", json={"text": "How many people at the office desk?"}, timeout=180) as s:
         assert s.status_code == 200
         body = b"".join(s.iter_bytes())

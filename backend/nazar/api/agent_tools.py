@@ -92,6 +92,26 @@ def _attr_match(attrs: dict | None, p: dict) -> tuple[int, int, list[str]]:
     return req, hit, why
 
 
+_QEMB: dict[tuple[str, str], list[float]] = {}
+
+
+def query_embedding(text: str, ai=None, ref: str | None = None) -> list[float]:
+    """The embedding of a search phrase. Repeated phrases (follow-ups, the investigator's retries, dashboards) are
+    served from memory, so each distinct phrase is paid for once per process."""
+    from ..core.config import get_settings
+
+    key = (get_settings().OPENAI_EMBED_MODEL, " ".join(text.lower().split()))
+    if key not in _QEMB:
+        if ai is None:
+            from ..core.openai_client import get_ai
+
+            ai = get_ai()
+        if len(_QEMB) >= 512:
+            _QEMB.pop(next(iter(_QEMB)))
+        _QEMB[key] = ai.embed([key[1]], kind="embed", ref=ref or "search")[0]
+    return _QEMB[key]
+
+
 def search_tracks(p: dict, ai=None, ref: str | None = None) -> dict:
     t_from, t_to = _t(p["time_from"]), _t(p["time_to"])
     limit = max(1, min(int(p.get("limit") or 8), 12))
@@ -115,12 +135,11 @@ def search_tracks(p: dict, ai=None, ref: str | None = None) -> dict:
     structural = not has_attrs and not text
     cols = "id, camera_id, cls, t_start, t_end, zone_path, caption, attrs, crop_keys, enriched"
     sql_where = " AND ".join(where)
+    if text and not db.fetch_one(f"SELECT 1 AS x FROM root_tracks WHERE {sql_where} AND caption_emb IS NOT NULL LIMIT 1",
+                                 params):
+        text = ""  # no described track in this window: an embedding call could not match anything (cost + latency saved)
     if text:
-        if ai is None:
-            from ..core.openai_client import get_ai
-
-            ai = get_ai()
-        q = ai.embed([text], kind="embed", ref=ref or "search")[0]
+        q = query_embedding(text, ai, ref)
         rows = db.fetch_all(
             f"SELECT {cols}, CASE WHEN caption_emb IS NULL THEN NULL ELSE 1 - (caption_emb <=> %s) END AS sim "
             f"FROM root_tracks WHERE {sql_where} ORDER BY caption_emb <=> %s NULLS LAST LIMIT 300",
