@@ -34,6 +34,47 @@ the same wall of video.
 Plus security analytics out of the box — loitering, abandoned bag, object taken, running, fall, crowding,
 after-hours presence, possible snatch — each a *Candidate* until a short AI check of blurred frames agrees.
 
+## The agents (added 24 Nov 2026)
+Nazar is no longer one question-answering agent. It is a small set of agents with narrow jobs, all bound by the same
+rules: facts come from server tools, evidence levels are set by code, and nothing changes without the owner.
+
+| Agent | Job | Model (from env) | When it runs |
+|---|---|---|---|
+| **Ask agent** | answers one question with tools; streams the reply | fast model first, agent model on escalation | every question (web, voice note, Telegram) |
+| **Investigator** | takes a goal, writes a plan, runs tools step by step, follows leads, returns a case file | agent model | Investigate page, an alert's Investigate link, Telegram `/investigate`, optionally every new alert |
+| **Rule compiler** | turns the owner's words into a validated watch rule and replays it on past footage | agent model | "mujhe batana…", `create_rule` |
+| **Verifier** | checks the top visual-search hits on blurred images; a recorded "yes" can raise a Candidate to Probable | vision model | on demand |
+| **Security checker** | looks at 6 blurred frames of a heuristic event (loitering, object taken, fall…) | vision model, Flex tier | background |
+| **Describer / captioner** | describes a clip or a track for search and reports | vision model, Flex tier | on demand only |
+
+**The Investigator** is the "think and execute" agent. Use cases it was run on:
+
+- *"21 Nov ki raat office desk se bag kisne uthaya? Poori jaanch karo, Pune ka mausam bhi dekho, ek case note save
+  karo aur mujhe Telegram pe summary bhejo."* It planned 7 steps, made its tool calls (security events, visual search,
+  journey of the track, clip descriptions, weather through MCP), and queued the note and the Telegram message for
+  approval. 57 s, ₹7.68.
+- *An alert → Investigate.* It reviewed the moments before and after alert #24, traced both tracks, compared the last
+  24 hours of similar events, and prepared incident report #18. 131 s, ₹5.59.
+
+What keeps it honest:
+
+- **Levels are derived, not written.** A finding cites tool calls; the server takes the weakest level among them. A
+  finding with no citation is shown as "agent's reasoning, not evidence".
+- **It asks first.** Activating a rule and every outside tool that sends, writes or switches something become pending
+  actions with their exact arguments. One tap approves, one tap rejects, and an action cannot run twice.
+- **It is bounded.** At most `AGENT_MAX_STEPS` model rounds, identical repeat calls are refused, every call is in `usage`.
+
+**MCP, both ways.** The Investigator can use any MCP server in `mcp.servers.json` (same format as Claude Desktop and
+Cursor). Connected out of the box: a bundled toolbox (weather, case notes, Telegram / Slack / Discord), memory and a
+reasoning scratchpad; Brave search, Notion and GitHub turn on when their key is in `.env`. A tool runs unattended only
+if its server marks it read-only. Nazar is also an **MCP server** with 18 tools, so Claude Desktop, Claude Code or
+Cursor can query the cameras: `python -m nazar.agentic.server`. Details: [docs/AGENT.md](docs/AGENT.md).
+
+**Agent film:** `demo/nazar_agent_film.mp4` (5 min 28 s, narrated; `scripts/demo_agent.mjs` + `scripts/film_agent.py`).
+The first investigation plays at real speed for 52 seconds: the plan appears, steps tick off, tool calls land. It also
+shows the connected tools, the case file, an approval, an investigation started from an alert, and a real MCP client
+session. Videos are not committed to the repo.
+
 ## Live demo
 **https://main.d3c12rzknieyam.amplifyapp.com** (passcode `nazar2026`). The web app is hosted on **AWS Amplify**
 (app `nazar`, us-west-2). The API and video pipeline run on the owner's laptop GPU (RTX 4050), reached over a secure
@@ -215,15 +256,39 @@ wall-clock stamp burned into the frame was < 0.5 s behind the screenshot time. L
 0.5–1.6 GB, API 0.4 GB, worker 0.45 GB, Postgres 0.1 GB. With Docker, VS Code and a browser this 8 GB laptop had
 ~0.6 GB free — under the 1 GB goal; 16 GB is comfortable.
 
+## What embeddings and voice really cost
+People ask about embedding cost first, so here are the numbers from the `usage` table on 24 Nov 2026 (every call
+since the first night, ₹193 in total):
+
+| What | Calls | Total ₹ | Per call ₹ | Share |
+|---|---|---|---|---|
+| Voice replies (`gpt-4o-mini-tts`) | 375 | 92.15 | 0.246 | 48 % |
+| Ask agent, agent model | 146 | 46.54 | 0.319 | 24 % |
+| Investigator (plan + execute) | 19 | 18.56 | — | 10 % |
+| Track captions (v1 captioned every track) | 1,000 | 14.01 | 0.014 | 7 % |
+| Rule compiler | 42 | 9.68 | 0.230 | 5 % |
+| Ask agent, fast model | 503 | 7.86 | 0.016 | 4 % |
+| **OpenAI embeddings** (`text-embedding-3-small`) | **87** | **0.07** | **0.00085** | **0.04 %** |
+
+- **Two kinds of embeddings.** The visual index (every track crop, a scene frame every 2 s) is SigLIP 2 on the local
+  GPU: no API call, ₹0. OpenAI embeddings are used only for the text of tracks that were described on demand (53 of
+  798 tracks) and for the search phrase matched against them.
+- **Embedding fixes (24 Nov):** a text search no longer calls the embedding API when no track in the time window has
+  a description (it could not match anything), and a repeated search phrase is embedded once per process.
+- **The real cost was voice.** A spoken reply costs about ₹0.25, more than the fast agent's answer itself, and it was
+  synthesized for every answer. Now the voice of an investigation, and of answers given to MCP clients, is made only
+  when someone presses play. Ask answers in the app and on Telegram keep their immediate voice reply: that is the product.
+- The Insights API (`GET /api/metrics`) now reports `embed_calls`, `embed_total_inr` and `embed_per_call_inr`.
+
 ## Where OpenAI is used
 | Model (env) | Job | When |
 |---|---|---|
 | `OPENAI_AGENT_FAST_MODEL` (gpt-6-luna) | query agent with 15 strict tools, SSE streaming | every question |
-| `OPENAI_AGENT_MODEL` (gpt-6-sol) | escalation, rule compiler, zone suggestions | hard questions, rules |
+| `OPENAI_AGENT_MODEL` (gpt-6-sol) | escalation, rule compiler, zone suggestions, the Investigator (plan + execute) | hard questions, rules, investigations |
 | `OPENAI_VISION_MODEL` (gpt-6-luna) | verify search hits, describe a clip, look now, security checks (Flex), on-demand captions (Flex) | on demand only |
 | `OPENAI_TRANSCRIBE_MODEL` (gpt-4o-transcribe) | voice notes (web + Telegram) | per voice note |
 | `OPENAI_TTS_MODEL` (gpt-4o-mini-tts) | spoken replies, alert voice notes, digest | per answer / alert |
-| `OPENAI_EMBED_MODEL` (text-embedding-3-small) | caption embeddings (only for described tracks) | on demand |
+| `OPENAI_EMBED_MODEL` (text-embedding-3-small) | caption embeddings (only for described tracks) and the search phrase, skipped when nothing is described | on demand |
 
 Every call writes a `usage` row with tokens, images, audio seconds, cost and the **service tier actually served**
 (Flex is priced at ~50 %). Model names are read only from the environment.
@@ -260,6 +325,8 @@ No GPU instances, no Bedrock, one instance. Click-by-click: [infra/DEPLOY.md](in
   for the CPU (goal 10 fps). Boxes are drawn into the stream, not on a client canvas.
 - **Teach by photo** uses the local SigLIP 2 index (YOLOE visual prompts scored 0.07–0.09 on our blurred 512 px frames):
   matches are Candidates and arrive ~20 s after the object appears (crops are written after 20 s in view).
+- **Investigator:** a run takes 1-2 minutes and ₹5-8 on the agent model; the Home Assistant, Notion and GitHub server
+  configs are untested; the file server needs Node 24+; Telegram `/investigate` was not tested against the live bot.
 - **Not done in v2:** the realtime "Call Nazar" voice mode, snatch/theft-dataset evaluation
   (multi-GB downloads; MOT17 was evaluated on 2 sequences), ANPR.
 - **Heuristic security events** (running, fall, snatch, loitering) are Candidates until verified; they were checked
@@ -282,6 +349,8 @@ backend/nazar/worker   eventize, rules, alerts, stitcher, security detectors + d
 backend/nazar/api      FastAPI: agent + tools, analytics (read-only SQL), visual search, clips/reels, reports,
                        uploads, onboarding (RTSP builder, Excel), teach (YOLOE), Telegram pairing
 backend/nazar/telegram Telegram bot (long polling)
+backend/nazar/agentic  Investigator (plan -> execute -> case file), MCP hub (client), MCP server, bundled toolbox
+mcp.servers.json       MCP servers the Investigator may use (keys referenced from .env, never stored here)
 web/                   Next.js static PWA (dark-first design, Recharts, framer-motion)
 infra/                 docker compose (dev/prod), MediaMTX, Caddy, Dockerfile, DEPLOY.md
 scripts/               setup, demo data, benchmarks, evaluations, smoke, screenshots, demo video

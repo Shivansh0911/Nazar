@@ -29,6 +29,13 @@ agent (luna first, sol on escalation, SSE streaming) → tools: count_events (re
 Telegram bot (long polling) → same agent; alerts pushed with snapshot + clip + voice note
 ```
 
+## Agentic layer (docs/AGENT.md)
+`backend/nazar/agentic/`: `investigator.py` (plan -> execute -> case file; levels derived server-side from cited tool
+calls; state-changing actions queued in `agent_actions` for owner approval), `hub.py` (MCP client, config in
+`mcp.servers.json`, a tool auto-runs only if read-only or in `auto_approve`), `server.py` (Nazar as an MCP server),
+`toolbox.py` (bundled MCP server). API in `api/routes_agent.py`, web page `/agent/`. The MCP SDK is 2.x
+(`MCPServer`, `Client`, snake_case fields), not the 1.x `FastMCP` API.
+
 ## Repo layout
 See BUILD_PROMPT.md section 3 (backend/nazar/{core,edge,worker,api}, web/, infra/, scripts/, samples/, data/). BUILD_PROMPT.md is the full spec and wins on any conflict.
 
