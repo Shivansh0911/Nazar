@@ -63,6 +63,9 @@ def ask_audio(name: str):
     """The voice reply of an answer. It is synthesized after the text answer is returned, so wait for it (<= 30 s)."""
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}\.mp3", name):
         raise http_error(400, "bad name")
+    from .agent import ensure_tts
+
+    ensure_tts(name)  # voice on demand (investigations): synthesized at the first play
     p = storage.local_path(f"tts/{name}")
     failed = storage.local_path(f"tts/{name}.failed")
     deadline = time.time() + 30

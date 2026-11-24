@@ -25,3 +25,4 @@ openpyxl>=3.1  # Excel camera import
 python-telegram-bot>=21
 cryptography>=42  # camera passwords encrypted at rest (Fernet)
 matplotlib>=3.8  # chart PNGs for Telegram
+mcp>=2,<3  # Model Context Protocol: Nazar as MCP server + client hub for the investigator

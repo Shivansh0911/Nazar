@@ -15,7 +15,7 @@ from ..core import db
 from ..core.config import get_settings
 from ..core.logging import setup_logging
 from ..core.migrate import migrate
-from . import alive, enricher, eventize_loop, retention, rules_loop, security, stitcher, visual_watch
+from . import alive, auto_investigate, enricher, eventize_loop, retention, rules_loop, security, stitcher, visual_watch
 
 log = logging.getLogger("nazar.worker")
 
@@ -92,6 +92,7 @@ def main(argv=None) -> int:
         threading.Thread(target=alive.loop, args=(stop,), name="alive", daemon=True),
         threading.Thread(target=security.loop, args=(stop,), name="security", daemon=True),
         threading.Thread(target=visual_watch.loop, args=(stop,), name="visual-watch", daemon=True),
+        threading.Thread(target=auto_investigate.loop, args=(stop,), name="auto-investigate", daemon=True),
     ]
     if not args.no_retention:
         threads.append(threading.Thread(target=retention.loop, args=(stop,), name="retention", daemon=True))

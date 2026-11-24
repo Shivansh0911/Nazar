@@ -265,6 +265,46 @@ async def report(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_document(f, filename=f"nazar_report_{r['report_id']}.pdf",
                                             caption=f"Manifest SHA-256 {r['manifest_sha256'][:16]}…")
 
+LEVEL_TAG = {"confirmed": "Confirmed", "probable": "Probable", "candidate": "Candidate - check this",
+             "external": "from a connected tool", "unverified": "agent's reasoning, not evidence"}
+
+
+def case_text(res: dict) -> str:
+    """A case file as one Telegram message: summary, findings with their server-set levels, what waits for approval."""
+    lines = [res["reply_text"]]
+    for f in res.get("findings", []):
+        lines.append(f"\n• {f['title']} [{LEVEL_TAG.get(f['level'], f['level'])}]\n  {f['detail']}")
+    if res.get("recommendations"):
+        lines.append("\nNext:\n" + "\n".join(f"- {r}" for r in res["recommendations"]))
+    waiting = [a for a in res.get("actions", []) if a.get("status") == "pending"]
+    if waiting:
+        lines.append(f"\n{len(waiting)} action(s) wait for your approval in the app: Investigate -> run #{res['run_id']} ("
+                     + ", ".join(a["label"] for a in waiting) + ")")
+    return "\n".join(lines)[:4000]
+
+
+async def investigate_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not await guard(update):
+        return
+    goal = " ".join(ctx.args or []).strip()
+    if not goal:
+        await update.message.reply_text("Usage: /investigate <goal>\ne.g. /investigate Kal raat kuch ajeeb hua? Poori jaanch karo")
+        return
+    await update.message.reply_text("Jaanch shuru kar raha hoon - plan bana ke step by step dekhta hoon (20-90 s)…")
+    from ..agentic import investigator
+
+    try:
+        res = await asyncio.to_thread(lambda: investigator.investigate(goal, None, token=None, trigger="telegram", voice=False))
+    except Exception as e:
+        log.exception("investigation failed")
+        await update.message.reply_text(f"Maaf kijiye, jaanch poori nahi hui: {str(e)[:120]}")
+        return
+    await update.message.reply_text(case_text(res))
+    if res.get("report") and res["report"].get("pdf_key"):
+        with open(storage.local_path(res["report"]["pdf_key"]), "rb") as f:
+            await update.message.reply_document(f, filename=f"nazar_report_{res['report']['report_id']}.pdf")
+
+
 async def today(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not await guard(update):
         return
@@ -341,6 +381,7 @@ def build_app(token: str) -> "Application":
     app.add_handler(CommandHandler("cameras", cameras))
     app.add_handler(CommandHandler("today", today))
     app.add_handler(CommandHandler("report", report))
+    app.add_handler(CommandHandler("investigate", investigate_cmd))
     app.add_handler(CallbackQueryHandler(on_button))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, on_voice))
     app.add_handler(MessageHandler(filters.PHOTO, on_photo))

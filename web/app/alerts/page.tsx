@@ -90,6 +90,7 @@ export default function AlertsPage() {
                   <AlertBubble alert={a} onOpen={setOpen} autoPlay={false} />
                   <button onClick={() => report({ alert_id: a.id, title: `Alert #${a.id} · ${a.camera_name || a.camera_id}` })} disabled={busy === `r${a.id}`}
                     className="mt-1 inline-flex items-center gap-1 text-xs text-primary disabled:opacity-50"><FileText size={13} /> {busy === `r${a.id}` ? "Preparing PDF…" : "Incident report (PDF)"}</button>
+                  <a href={`/agent/?alert=${a.id}`} className="ml-3 mt-1 inline-flex items-center gap-1 text-xs text-primary"><Sparkles size={13} /> Investigate</a>
                 </div>
               ))}
           </div>

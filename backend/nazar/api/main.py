@@ -15,7 +15,7 @@ from ..core.config import get_settings
 from ..core.logging import setup_logging
 from ..core.migrate import migrate
 from . import (routes_alerts, routes_ask, routes_cameras, routes_clips, routes_live, routes_metrics, routes_rules,
-               routes_onboard, routes_search, routes_upload, routes_uploads, routes_v2, routes_visual, ws)
+               routes_agent, routes_onboard, routes_search, routes_upload, routes_uploads, routes_v2, routes_visual, ws)
 from .auth import issue, require_token
 from .deps import http_error, install_error_handlers
 from .edge_manager import get_manager
@@ -45,6 +45,9 @@ async def lifespan(app: FastAPI):
     pusher.cancel()
     ws.hub.stop()
     mgr.shutdown()
+    from ..agentic.hub import close_hub
+
+    close_hub()
     db.close_pool()
 
 
@@ -109,6 +112,6 @@ def media(key: str):
 
 
 for r in (routes_onboard, routes_cameras, routes_live, routes_upload, routes_search, routes_clips, routes_rules, routes_alerts,
-          routes_metrics, routes_ask, routes_visual, routes_uploads, routes_v2):
+          routes_metrics, routes_ask, routes_visual, routes_uploads, routes_v2, routes_agent):
     app.include_router(r.router)
 app.include_router(ws.router)

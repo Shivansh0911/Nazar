@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   AlertTriangle, BarChart3, Bell, Camera, FileText, Home, Loader2, LogOut, MessageCircle, Moon, MoreHorizontal, Radio,
-  Search, Settings, Sun, Volume2, VolumeX, X,
+  Search, Settings, Sparkles, Sun, Volume2, VolumeX, X,
 } from "lucide-react";
 import type { Level, SeriesPoint } from "@/lib/types";
 import { fmtHour } from "@/lib/format";
@@ -44,6 +44,7 @@ export function Logo() {
 export const NAV = [
   { href: "/", label: "Today", icon: Home },
   { href: "/ask/", label: "Ask", icon: MessageCircle },
+  { href: "/agent/", label: "Investigate", icon: Sparkles },
   { href: "/search/", label: "Search", icon: Search },
   { href: "/live/", label: "Live", icon: Radio },
   { href: "/cameras/", label: "Cameras", icon: Camera },

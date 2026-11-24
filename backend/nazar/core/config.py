@@ -81,6 +81,14 @@ class Settings(BaseSettings):
     RECORD_RAW: int = 0
     DOMAIN: str = ""
 
+    # ---- agentic layer (investigator + MCP) ----
+    MCP_ENABLED: bool = True  # connect to the servers in mcp.servers.json
+    MCP_CONFIG: str = ""  # path to the MCP server list; default = <repo>/mcp.servers.json
+    MCP_MAX_TOOLS: int = 48  # at most this many external tools are offered to the model per run
+    AGENT_MAX_STEPS: int = 12  # model rounds one investigation may take
+    INVESTIGATOR_REASONING_EFFORT: str = "low"  # none|low|medium|high; "" = model default
+    AUTO_INVESTIGATE_ALERTS: bool = False  # worker: run an investigation for every new alert
+
     @field_validator("*", mode="before")
     @classmethod
     def _blank_to_default(cls, v, info):

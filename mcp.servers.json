@@ -1,0 +1,64 @@
+{
+  "_readme": [
+    "MCP servers the Nazar investigator can use. Same shape as Claude Desktop / Cursor (mcpServers), so any server's config can be pasted here.",
+    "stdio server: command + args (+ env). Remote server: url (+ headers). ${VAR} is filled from .env; a server whose variable is empty is skipped ('needs a key').",
+    "A tool runs on its own ONLY if the server marks it read-only or it is listed in auto_approve. Everything else is queued for the owner's approval.",
+    "Extra keys: enabled (false = off), tools (allow-list of tool names), auto_approve, require_approval, description.",
+    "Provided variables: NAZAR_DATA_DIR, NAZAR_EXPORT_DIR, NAZAR_REPO. Never put a secret in this file - reference it as ${NAME}."
+  ],
+  "mcpServers": {
+    "toolbox": {
+      "description": "Weather for a place and day, case notes in the export folder, messages to the owner's Telegram / Slack / Discord (ships with Nazar)",
+      "command": "python",
+      "args": ["-m", "nazar.agentic.toolbox"]
+    },
+    "files": {
+      "description": "Full file tools for Nazar's export folder only. Needs Node 24+ (the toolbox already saves notes without it)",
+      "enabled": false,
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "${NAZAR_EXPORT_DIR}"]
+    },
+    "memory": {
+      "description": "Long-term notes about this site (opening hours, usual deliveries, what the owner called normal)",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "env": { "MEMORY_FILE_PATH": "${NAZAR_DATA_DIR}/agent_memory.jsonl" },
+      "auto_approve": ["read_graph", "search_nodes", "open_nodes"]
+    },
+    "thinking": {
+      "description": "A scratchpad for step-by-step reasoning on hard cases",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "auto_approve": ["sequentialthinking"]
+    },
+    "brave": {
+      "description": "Web search (local news, holidays, events near the site)",
+      "command": "npx",
+      "args": ["-y", "@brave/brave-search-mcp-server"],
+      "env": { "BRAVE_API_KEY": "${BRAVE_API_KEY}" }
+    },
+    "notion": {
+      "description": "The owner's Notion workspace (incident log, shift notes)",
+      "command": "npx",
+      "args": ["-y", "@notionhq/notion-mcp-server"],
+      "env": { "NOTION_TOKEN": "${NOTION_TOKEN}" }
+    },
+    "github": {
+      "description": "GitHub issues (for example a ticket for a camera that keeps going offline)",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": { "Authorization": "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}" }
+    },
+    "home-assistant": {
+      "description": "Smart home / shop: lights, sirens, door sensors (every switch asks the owner first)",
+      "enabled": false,
+      "url": "${HOME_ASSISTANT_URL}/api/mcp",
+      "headers": { "Authorization": "Bearer ${HOME_ASSISTANT_TOKEN}" }
+    },
+    "browser": {
+      "description": "A headless browser for pages that need one (heavy: about 300 MB of RAM)",
+      "enabled": false,
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest", "--headless"]
+    }
+  }
+}

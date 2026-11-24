@@ -456,6 +456,22 @@ def _exec_tool(name: str, args: dict, ref: str, token: str | None) -> dict:
     return {"error": f"unknown tool {name}"}
 
 
+_HIT_KEYS = ("kind", "id", "track_id", "camera_id", "cls", "t", "level", "why")
+
+
+def model_view(name: str, result: Any) -> dict:
+    """What the model sees of a tool result: no private (_) keys, visual hits reduced to their facts."""
+    if not isinstance(result, dict):
+        return {"result": result}
+    # no private (_) keys, and no media links: they carry the session token and the model has no use for them
+    view = {k: v for k, v in result.items() if not k.startswith("_") and not k.endswith("_url")}
+    if view.get("visual_hits") is not None:
+        view["visual_hits"] = [{k: h.get(k) for k in _HIT_KEYS} for h in view["visual_hits"]]
+    if name == "visual_search":
+        view["hits"] = [{k: h.get(k) for k in _HIT_KEYS} for h in view.get("hits", [])]
+    return view
+
+
 def _item_dict(item: Any) -> dict:
     if hasattr(item, "model_dump"):
         d = item.model_dump(exclude_none=True)
@@ -628,17 +644,8 @@ def run_agent(question: str, camera_id: str | None, *, ref: str, token: str | No
         for fc, args, result in outs:
             idx = len(calls)
             calls.append({"index": idx, "name": fc.name, "args": args, "result": result})
-            model_view = {k: v for k, v in result.items() if not k.startswith("_")} if isinstance(result, dict) else result
-            if isinstance(model_view, dict) and model_view.get("visual_hits") is not None:
-                model_view = {**model_view, "visual_hits": [{k: h.get(k) for k in ("kind", "id", "track_id", "camera_id",
-                                                                                 "cls", "t", "level", "why")}
-                                                            for h in model_view["visual_hits"]]}
-            if isinstance(model_view, dict) and fc.name == "visual_search":
-                model_view = {**model_view, "hits": [{k: h.get(k) for k in ("kind", "id", "track_id", "camera_id", "cls",
-                                                                              "t", "level", "why")}
-                                                     for h in model_view.get("hits", [])]}
             inp.append({"type": "function_call_output", "call_id": fc.call_id,
-                        "output": json.dumps({"tool_call_index": idx, **model_view}, default=str)[:20000]})
+                        "output": json.dumps({"tool_call_index": idx, **model_view(fc.name, result)}, default=str)[:20000]})
     raise RuntimeError("agent did not finish")
 
 
@@ -768,6 +775,38 @@ def tts_name(ref: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_-]", "_", ref) + ".mp3"
 
 
+_tts_lock = threading.Lock()
+
+
+def defer_tts(ref: str, text: str, lang: str) -> str:
+    """Voice on demand: remember the text and synthesize it only when the audio is first requested (ensure_tts).
+    Used where the reply is usually read, not heard (investigations, MCP clients). Returns the mp3 name."""
+    name = tts_name(ref)
+    p = storage.local_path(f"tts/{name}.pending.json")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps({"text": text, "lang": lang, "ref": ref}, ensure_ascii=False), encoding="utf-8")
+    return name
+
+
+def ensure_tts(name: str) -> None:
+    """Synthesize a deferred voice reply now (first play). Does nothing when it exists or was never deferred."""
+    key = f"tts/{name}"
+    pending = storage.local_path(key + ".pending.json")
+    if storage.local_path(key).exists() or not pending.exists():
+        return
+    with _tts_lock:
+        if storage.local_path(key).exists() or not pending.exists():
+            return
+        d = json.loads(pending.read_text(encoding="utf-8"))
+        try:
+            get_ai().tts(d["text"], d.get("lang") or "en", out_path=storage.local_path(key), ref=d.get("ref"))
+            storage.put(storage.local_path(key), key)
+        except Exception as e:
+            log.warning("TTS failed: %s", e)
+            storage.local_path(key + ".failed").write_text(str(e)[:200])
+        pending.unlink(missing_ok=True)
+
+
 _cache: dict[tuple, tuple[float, dict]] = {}
 _cache_lock = threading.Lock()
 CACHE_S = 60.0
@@ -847,7 +886,11 @@ def ask(question: str, camera_id: str | None, *, token: str | None, transcript: 
             except Exception as e:
                 log.warning("could not update query audio: %s", e)
 
-    th = threading.Thread(target=do_tts, daemon=True)
+    if input_kind == "mcp":  # an MCP client reads the answer; the voice is made only if someone asks for it
+        defer_tts(ref, answer.reply_text, lang)
+        th = threading.Thread(target=lambda: None)
+    else:
+        th = threading.Thread(target=do_tts, daemon=True)
     th.start()  # TTS starts the moment the text is complete
     parts = assemble(answer, calls, token)
     if wait_audio:
